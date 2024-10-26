@@ -1,5 +1,5 @@
 use std::convert::From;
-use std::fmt::{Display, Error, Formatter};
+use std::fmt::{Display, Binary, Error, Formatter};
 use std::iter::{IntoIterator, Iterator};
 use std::ops::{Deref, DerefMut};
 
@@ -106,6 +106,17 @@ impl<const C: usize, T: Copy + Default> SVec<C, T> {
             new_svec
         }
     }
+
+    /// convert to Vec<T>
+    pub fn as_vec(self) -> Vec<T> {
+        let mut vec = Vec::new();
+
+        for i in self {
+            vec.push(i);
+        }
+
+        vec
+    }
 }
 
 impl<const C: usize, T: Copy + Default> Deref for SVec<C, T> {
@@ -130,6 +141,23 @@ impl<const C: usize, T: Copy + Default + Display> Display for SVec<C, T> {
                 write!(f, ", ")?;
             }
             write!(f, "{}", self[i])?;
+        }
+
+        write!(f, "]")?;
+
+        Ok(())
+    }
+}
+
+impl<const C: usize, T: Copy + Default + Binary> Binary for SVec<C, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "[")?;
+
+        for i in 0..self.len() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{:b}", self[i])?;
         }
 
         write!(f, "]")?;

@@ -1,7 +1,25 @@
 use std::ops::{Deref, DerefMut};
 use util::svec::SVec;
 
-pub struct Code {
+/// Encoder is an encoder for x64 machine language.
+/// This is the most low-layer module in asm crate.
+/// # Examples
+/// ```
+/// use asm::encoder::Encoder;
+/// let mut encoder = Encoder::new();
+///
+/// encoder.rex_prefix.enable();
+/// encoder.rex_prefix.set_w(true);
+/// encoder.rex_prefix.set_r(false);
+/// encoder.opecode.push(0xb8 + 0);
+/// encoder.imm = Imm::Imm64(123);
+///
+/// encoder.encode(); // return machine language code
+/// ```
+/// # Caution
+/// - Input to Encoder struct will not be checked.
+#[derive(Clone, Copy, Debug)]
+pub struct Encoder {
     pub prefix: Option<()>,
     pub rex_prefix: Rex,
     pub opecode: Opecode,
@@ -11,9 +29,9 @@ pub struct Code {
     pub imm: Imm,
 }
 
-impl Code {
+impl Encoder {
     pub fn new() -> Self {
-        Code {
+        Encoder {
             prefix: None,
             rex_prefix: Rex::new(),
             opecode: Opecode::new(),
@@ -85,7 +103,7 @@ impl Code {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Rex(u8, bool);
 
 impl Rex {
@@ -134,11 +152,16 @@ impl Rex {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct Opecode(SVec<3, u8>);
 
 impl Opecode {
     pub fn new() -> Self {
         Opecode(SVec::new())
+    }
+
+    pub fn set(&mut self, opecode: SVec<3, u8>) {
+        self.0 = opecode;
     }
 
     pub fn get(&self) -> SVec<3, u8> {
@@ -160,6 +183,7 @@ impl DerefMut for Opecode {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct ModRm(u8);
 
 impl ModRm {
@@ -187,6 +211,7 @@ impl ModRm {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct Sib(u8);
 
 impl Sib {
@@ -214,6 +239,7 @@ impl Sib {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum Disp {
     None,
     Disp8(u8),
@@ -221,6 +247,7 @@ pub enum Disp {
     Disp32(u32),
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum Imm {
     None,
     Imm8(u8),
