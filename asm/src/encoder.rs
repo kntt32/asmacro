@@ -1,6 +1,7 @@
 use std::ops::{Deref, DerefMut};
 use util::svec::SVec;
 
+#[derive(Clone, Copy, Debug)]
 /// Encoder is an encoder for x64 machine language.
 /// This is the most low-layer module in asm crate.
 /// # Examples
@@ -17,8 +18,7 @@ use util::svec::SVec;
 /// encoder.encode(); // return machine language code
 /// ```
 /// # Caution
-/// - Input to Encoder struct will not be checked.
-#[derive(Clone, Copy, Debug)]
+/// - Inputs to Encoder are unchecked
 pub struct Encoder {
     pub prefix: Option<()>,
     pub rex_prefix: Rex,
@@ -30,6 +30,7 @@ pub struct Encoder {
 }
 
 impl Encoder {
+    /// construct new Encoder object
     pub fn new() -> Self {
         Encoder {
             prefix: None,
@@ -42,6 +43,7 @@ impl Encoder {
         }
     }
 
+    /// encode machine language
     pub fn encode(&self) -> SVec<18, u8> {
         let mut binary = SVec::new();
 
@@ -104,6 +106,7 @@ impl Encoder {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// Structure RexPrefix
 pub struct Rex(u8, bool);
 
 impl Rex {
@@ -111,10 +114,12 @@ impl Rex {
         Rex(0b0100_0000, false)
     }
 
+    /// Enable RexPrefix
     pub fn enable(&mut self) {
         self.1 = true;
     }
 
+    /// Set w field
     pub fn set_w(&mut self, w: bool) {
         self.0 &= !0b1000;
         if w {
@@ -122,6 +127,7 @@ impl Rex {
         }
     }
 
+    /// Set r field
     pub fn set_r(&mut self, r: bool) {
         self.0 &= !0b0100;
         if r {
@@ -129,6 +135,7 @@ impl Rex {
         }
     }
 
+    /// Set x field
     pub fn set_x(&mut self, x: bool) {
         self.0 &= !0b0010;
         if x {
@@ -136,6 +143,7 @@ impl Rex {
         }
     }
 
+    /// Set b field
     pub fn set_b(&mut self, b: bool) {
         self.0 &= !0b0001;
         if b {
@@ -143,6 +151,8 @@ impl Rex {
         }
     }
 
+    /// Get RexPrefix binary
+    /// if it is enabled, return Some(u8) else return None
     const fn get(&self) -> Option<u8> {
         if self.1 {
             Some(self.0)
@@ -153,17 +163,21 @@ impl Rex {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// Etructure of Opecode
 pub struct Opecode(SVec<3, u8>);
 
 impl Opecode {
+    /// Construct new Opecode
     pub fn new() -> Self {
         Opecode(SVec::new())
     }
 
+    /// Set Opecode
     pub fn set(&mut self, opecode: SVec<3, u8>) {
         self.0 = opecode;
     }
 
+    /// Get Opecode
     pub fn get(&self) -> SVec<3, u8> {
         self.0
     }
@@ -184,62 +198,75 @@ impl DerefMut for Opecode {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// Structure of ModRm
 pub struct ModRm(u8);
 
 impl ModRm {
+    /// Construct ModRm
     pub fn new() -> ModRm {
         ModRm(0)
     }
 
+    /// Set mod field
     pub fn set_mod(&mut self, r#mod: u8) {
         self.0 &= !0b11000000;
         self.0 |= (r#mod & 0b11) << 6;
     }
 
+    /// Set reg field
     pub fn set_reg(&mut self, reg: u8) {
         self.0 &= !0b00111000;
         self.0 |= (reg & 0b111) << 3;
     }
 
+    /// Set rm field
     pub fn set_rm(&mut self, rm: u8) {
         self.0 &= !0b00000111;
         self.0 |= rm & 0b111;
     }
 
+    /// Get ModRm value
     pub fn get(&self) -> u8 {
         self.0
     }
 }
 
 #[derive(Clone, Copy, Debug)]
+/// Structure for Sib
 pub struct Sib(u8);
 
 impl Sib {
+    /// Construct Sib
     pub fn new() -> Self {
         Sib(0)
     }
 
+    /// Set scale field
     pub fn set_scale(&mut self, scale: u8) {
         self.0 &= !0b11000000;
         self.0 |= (scale & 0b11) << 6;
     }
 
+    /// Set index field
     pub fn set_index(&mut self, index: u8) {
         self.0 &= !0b111000;
         self.0 |= (index & 0b111) << 3;
     }
 
+    /// Set base field
     pub fn set_base(&mut self, base: u8) {
         self.0 &= !0b111;
         self.0 |= base & 0b111;
     }
 
+    /// Get Sib value
     pub fn get(&self) -> u8 {
         self.0
     }
 }
 
 #[derive(Clone, Copy, Debug)]
+/// Enum for Disp
 pub enum Disp {
     None,
     Disp8(u8),
@@ -248,6 +275,7 @@ pub enum Disp {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// Enum for Immediate value
 pub enum Imm {
     None,
     Imm8(u8),
