@@ -26,12 +26,12 @@ fn main() {
     println!("code: {}", code.encode());*/
 
     let mut opds = OpDescpritor::new(true, SVec::<3, u8>::from(&[0x8b][0 .. 1]), Operand::R64Rm64(Reg64::Rax, Rm64::R64(Reg64::Rdi))); // mov rax, rdi
-    let mut ml = opds.encode().as_vec();
+    let mut ml = opds.encode().unwrap().as_vec();
     opds = OpDescpritor::new(true, SVec::<3, u8>::from(&[0x03][0 .. 1]), Operand::R64Rm64(Reg64::Rax, Rm64::R64(Reg64::Rsi))); // add rax, rsi
-    let mlvec = [ml, opds.encode().as_vec()].concat();
+    let mlvec = [ml, opds.encode().unwrap().as_vec()].concat();
 
     opds = OpDescpritor::new(false, SVec::<3, u8>::from(&[0xc3][0 .. 1]), Operand::None); // ret
-    let mlvec = [mlvec, opds.encode().as_vec()].concat();
+    let mlvec = [mlvec, opds.encode().unwrap().as_vec()].concat();
     println!("{:?}", mlvec);
     
     let dynfn = DynFn::<(u64, u64), u64>::new(&mlvec);

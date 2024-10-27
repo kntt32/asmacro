@@ -18,7 +18,7 @@ impl OpDescpritor {
         OpDescpritor { rex_prefix: rex_prefix, opecode: opecode, operand: operand }
     }
 
-    pub fn encode(&self) -> SVec<18, u8> {
+    pub fn encode(&self) -> Result<SVec<18, u8>, ()> {
         let mut encoder = Encoder::new();
 
         //rex
@@ -31,6 +31,12 @@ impl OpDescpritor {
         encoder.opecode.set(self.opecode);
 
         //operand
+        self.set_operand(&mut encoder)?;
+
+        Ok(encoder.encode())
+    }
+
+    fn set_operand(&self, encoder: &mut Encoder) -> Result<(), ()> {
         match self.operand {
             Operand::None => {
                 // do nothing
@@ -41,27 +47,26 @@ impl OpDescpritor {
                 // reg64
                 encoder.rex_prefix.enable();
                 encoder.rex_prefix.set_w(true);
-                let regcode = reg64.to_regcode();
+                let regcode = reg64.to_regcode_for_modrm_reg()?;
                 encoder.rex_prefix.set_r(regcode.rex);
                 mod_rm.set_reg(regcode.reg);
 
                 // rm64
                 match rm64 {
                     Rm64::R64(reg64) => {
-                        let regcode = reg64.to_regcode();
+                        let regcode = reg64.to_regcode_for_modrm_rm_reg_mod11()?;
                         mod_rm.set_mod(0b11);
                         mod_rm.set_rm(regcode.reg);
                         encoder.rex_prefix.set_b(regcode.rex);
                     },
                     Rm64::M64(reg64, disp) => {
-                        let regcode = reg64.to_regcode();
                         match disp {
                             Disp::None => {
-                                mod_rm.set_mod(0b00);
                                 if reg64 == Reg64::Rip {
-                                    mod_rm.set_rm(0b101);
-                                    encoder.rex_prefix.set_b(false);
+                                    todo!("Todo");
                                 }else {
+                                    let regcode = reg64.to_regcode_for_modrm_rm_reg_mod00()?;
+                                    mod_rm.set_mod(0b00);
                                     mod_rm.set_rm(regcode.reg);
                                     encoder.rex_prefix.set_b(regcode.rex);
                                 }
@@ -75,14 +80,14 @@ impl OpDescpritor {
                         }
                     },
                     Rm64::M64Sib(sib, disp) => {
-
+                        todo!("Todo");
                     },
                 }
 
                 encoder.mod_rm = Some(mod_rm);
             },
             Operand::R64Imm64(reg64, imm64) => {
-                let regcode = reg64.to_regcode();
+                let regcode = reg64.to_regcode_for_opecode()?;
 
                 // reg64
                 let encode_opecode_length = encoder.opecode.len();
@@ -94,12 +99,8 @@ impl OpDescpritor {
                 // imm64
                 encoder.imm = Imm::Imm64(imm64);
             },
-            _ => {
-                panic!("Unknown Operand");
-            },
         }
-
-        encoder.encode()
+        Ok(())
     }
 }
 
@@ -138,6 +139,46 @@ impl Reg64 {
             Reg64::Rip => {
                 panic!("Invalid Register")
             }
+        }
+    }
+
+    fn to_regcode_for_opecode(self) -> Result<RegCode, ()> {
+        match self {
+            Reg64::Rax => Ok(RegCode::Rax),
+            Reg64::Rcx => Ok(RegCode::Rcx),
+            Reg64::Rdx => Ok(RegCode::Rdx),
+            Reg64::Rbx => Ok(RegCode::Rbx),
+            Reg64::Rsp => Ok(RegCode::Rsp),
+            Reg64::Rbp => Ok(RegCode::Rbp),
+            Reg64::Rsi => Ok(RegCode::Rsi),
+            Reg64::Rdi => Ok(RegCode::Rdi),
+            Reg64::R8 => Ok(RegCode::R8),
+            Reg64::R9 => Ok(RegCode::R9),
+            Reg64::R10 => Ok(RegCode::R10),
+            Reg64::R11 => Ok(RegCode::R11),
+            Reg64::R12 => Ok(RegCode::R12),
+            Reg64::R13 => Ok(RegCode::R13),
+            Reg64::R14 => Ok(RegCode::R14),
+            Reg64::R15 => Ok(RegCode::R15),
+            _ => Err(())
+        }
+    }
+
+    fn to_regcode_for_modrm_reg(self) -> Result<RegCode, ()> {
+        self.to_regcode_for_opecode()
+    }
+
+    fn to_regcode_for_modrm_rm_reg_mod11(self) -> Result<RegCode, ()> {
+        self.to_regcode_for_opecode()
+    }
+
+    fn to_regcode_for_modrm_rm_reg_mod00(self) -> Result<RegCode, ()> {
+        match self {
+            Reg64::Rsp => Err(()),
+            Reg64::Rbp => Err(()),
+            Reg64::R12 => Err(()),
+            Reg64::R13 => Err(()),
+            _ => self.to_regcode_for_opecode(),
         }
     }
 }
