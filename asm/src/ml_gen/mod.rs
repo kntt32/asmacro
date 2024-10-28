@@ -39,67 +39,72 @@ impl OpDescpritor {
     fn set_operand(&self, encoder: &mut Encoder) -> Result<(), ()> {
         match self.operand {
             Operand::None => {
-                // do nothing
+                Ok(())
             },
-            Operand::R64Rm64(reg64, rm64) => {
-                let mut mod_rm = ModRm::new();
+            Operand::R64Rm64(reg64, rm64) => self.set_modrm(encoder, reg64, rm64),
+            Operand::R64Imm64(reg64, imm64) => self.set_reg_imm(encoder, reg64, imm64),
+        }
+    }
 
-                // reg64
-                encoder.rex_prefix.enable();
-                encoder.rex_prefix.set_w(true);
-                let regcode = reg64.to_regcode_for_modrm_reg()?;
-                encoder.rex_prefix.set_r(regcode.rex);
-                mod_rm.set_reg(regcode.reg);
+    fn set_modrm(&self, encoder: &mut Encoder, reg64: Reg64, rm64: Rm64) -> Result<(), ()> {
+        let mut mod_rm = ModRm::new();
 
-                // rm64
-                match rm64 {
-                    Rm64::R64(reg64) => {
-                        let regcode = reg64.to_regcode_for_modrm_rm_reg_mod11()?;
-                        mod_rm.set_mod(0b11);
-                        mod_rm.set_rm(regcode.reg);
-                        encoder.rex_prefix.set_b(regcode.rex);
-                    },
-                    Rm64::M64(reg64, disp) => {
-                        match disp {
-                            Disp::None => {
-                                if reg64 == Reg64::Rip {
-                                    todo!("Todo");
-                                }else {
-                                    let regcode = reg64.to_regcode_for_modrm_rm_reg_mod00()?;
-                                    mod_rm.set_mod(0b00);
-                                    mod_rm.set_rm(regcode.reg);
-                                    encoder.rex_prefix.set_b(regcode.rex);
-                                }
-                            },
-                            Disp::Disp8(disp8) => {
-                                todo!("Todo");
-                            },
-                            Disp::Disp32(disp32) => {
-                                todo!("Todo");
-                            },
+        // reg64
+        encoder.rex_prefix.enable();
+        encoder.rex_prefix.set_w(true);
+        let regcode = reg64.to_regcode_for_modrm_reg()?;
+        encoder.rex_prefix.set_r(regcode.rex);
+        mod_rm.set_reg(regcode.reg);
+
+        // rm64
+        match rm64 {
+            Rm64::R64(reg64) => {
+                let regcode = reg64.to_regcode_for_modrm_rm_reg_mod11()?;
+                mod_rm.set_mod(0b11);
+                mod_rm.set_rm(regcode.reg);
+                encoder.rex_prefix.set_b(regcode.rex);
+            },
+            Rm64::M64(reg64, disp) => {
+                match disp {
+                    Disp::None => {
+                        if reg64 == Reg64::Rip {
+                            todo!("Todo");
+                        }else {
+                            let regcode = reg64.to_regcode_for_modrm_rm_reg_mod00()?;
+                            mod_rm.set_mod(0b00);
+                            mod_rm.set_rm(regcode.reg);
+                            encoder.rex_prefix.set_b(regcode.rex);
                         }
                     },
-                    Rm64::M64Sib(sib, disp) => {
+                    Disp::Disp8(disp8) => {
+                        todo!("Todo");
+                    },
+                    Disp::Disp32(disp32) => {
                         todo!("Todo");
                     },
                 }
-
-                encoder.mod_rm = Some(mod_rm);
             },
-            Operand::R64Imm64(reg64, imm64) => {
-                let regcode = reg64.to_regcode_for_opecode()?;
-
-                // reg64
-                let encode_opecode_length = encoder.opecode.len();
-                encoder.opecode[encode_opecode_length - 1] += regcode.reg;
-                encoder.rex_prefix.enable();
-                encoder.rex_prefix.set_w(true);
-                encoder.rex_prefix.set_r(regcode.rex);
-
-                // imm64
-                encoder.imm = Imm::Imm64(imm64);
+            Rm64::M64Sib(sib, disp) => {
+                todo!("Todo");
             },
         }
+
+        encoder.mod_rm = Some(mod_rm);
+        Ok(())
+    }
+
+    fn set_reg_imm(&self, encoder: &mut Encoder, reg64: Reg64, imm64: u64) -> Result<(), ()> {
+        let regcode = reg64.to_regcode_for_opecode()?;
+
+        // reg64
+        let encode_opecode_length = encoder.opecode.len();
+        encoder.opecode[encode_opecode_length - 1] += regcode.reg;
+        encoder.rex_prefix.enable();
+        encoder.rex_prefix.set_w(true);
+        encoder.rex_prefix.set_r(regcode.rex);
+
+        // imm64
+        encoder.imm = Imm::Imm64(imm64);
         Ok(())
     }
 }
