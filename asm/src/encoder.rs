@@ -76,9 +76,6 @@ impl Encoder {
             Disp::Disp8(disp) => {
                 binary.push(disp);
             },
-            Disp::Disp16(disp) => {
-                for i in 0 .. 2 { binary.push(((disp >> (i*8)) & 0xff) as u8); }
-            },
             Disp::Disp32(disp) => {
                 for i in 0 .. 4 { binary.push(((disp >> (i*8)) & 0xff) as u8); }
             },
@@ -270,7 +267,6 @@ impl Sib {
 pub enum Disp {
     None,
     Disp8(u8),
-    Disp16(u16),
     Disp32(u32),
 }
 
