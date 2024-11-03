@@ -1,5 +1,5 @@
-/// x64 machine language encoder
-pub mod encoder;
+mod registers;
 
-/// x64 machine language generator
-pub mod ml_gen;
+pub mod raw_encoder;
+
+pub mod ml_generator;

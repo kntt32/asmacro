@@ -1,7 +1,6 @@
 use util::dyn_fn::DynFn;
-use asm::encoder::{Encoder, Imm};
-use asm::ml_gen::*;
 use util::svec::SVec;
+use asm::ml_generator::*;
 
 fn main() {
     let code: &[u8] = &[
@@ -23,7 +22,7 @@ fn main() {
     code.opecode.push(0xb8 + 0);
     code.imm = Imm::Imm64(123);
 
-    println!("code: {}", code.encode());*/
+    println!("code: {}", code.encode());
 
     let mut opds = OpDescpritor::new(true, SVec::<3, u8>::from(&[0x8b][0 .. 1]), Operand::R64Rm64(Reg64::Rax, Rm64::R64(Reg64::Rdi))); // mov rax, rdi
     let mut ml = opds.encode().unwrap().as_vec();
@@ -38,4 +37,12 @@ fn main() {
     unsafe {
         println!("{}", dynfn.call((1, 3))); // 4
     }
+    */
+
+    let mut ml_gen = MlGen::new();
+    ml_gen.rex_prefix.enable();
+    ml_gen.rex_prefix.set_w(true);
+    ml_gen.opecode.set(SVec::from([0xb8]), Some(0));
+    ml_gen.imm = Imm::Imm64(123);
+    println!("code: {}", ml_gen.encode());
 }
