@@ -33,7 +33,7 @@ impl MlGen {
             for value in field {
                 ml_svec.push(value);
             }
-        }else {
+        } else {
             panic!("invalid operation");
         }
 
@@ -47,32 +47,36 @@ impl MlGen {
 
         match self.disp {
             Disp::None => (),
-            Disp::Disp8(field) => { ml_svec.push(field); },
+            Disp::Disp8(field) => {
+                ml_svec.push(field);
+            }
             Disp::Disp32(field) => {
-                for i in 0 .. 4 {
-                    ml_svec.push(((field >> (i*8)) & 0xff) as u8);
+                for i in 0..4 {
+                    ml_svec.push(((field >> (i * 8)) & 0xff) as u8);
                 }
-            },
+            }
         }
 
         match self.imm {
             Imm::None => (),
-            Imm::Imm8(field) => { ml_svec.push(field); },
+            Imm::Imm8(field) => {
+                ml_svec.push(field);
+            }
             Imm::Imm16(field) => {
-                for i in 0 .. 2 {
-                    ml_svec.push(((field >> (i*8)) & 0xff) as u8);
+                for i in 0..2 {
+                    ml_svec.push(((field >> (i * 8)) & 0xff) as u8);
                 }
-            },
+            }
             Imm::Imm32(field) => {
-                for i in 0 .. 4 {
-                    ml_svec.push(((field >> (i*8)) & 0xff) as u8);
+                for i in 0..4 {
+                    ml_svec.push(((field >> (i * 8)) & 0xff) as u8);
                 }
-            },
+            }
             Imm::Imm64(field) => {
-                for i in 0 .. 8 {
-                    ml_svec.push(((field >> (i*8)) & 0xff) as u8);
+                for i in 0..8 {
+                    ml_svec.push(((field >> (i * 8)) & 0xff) as u8);
                 }
-            },
+            }
         }
 
         ml_svec
@@ -100,7 +104,7 @@ impl RexPrefix {
             if value {
                 *field |= 0b00001000;
             }
-        }else {
+        } else {
             panic!("invalid operation");
         }
     }
@@ -111,7 +115,7 @@ impl RexPrefix {
             if value {
                 *field |= 0b00000100;
             }
-        }else {
+        } else {
             panic!("invalid operation");
         }
     }
@@ -122,7 +126,7 @@ impl RexPrefix {
             if value {
                 *field |= 0b00000010;
             }
-        }else {
+        } else {
             panic!("invalid operation");
         }
     }
@@ -133,7 +137,7 @@ impl RexPrefix {
             if value {
                 *field |= 0b00000001;
             }
-        }else {
+        } else {
             panic!("invalid operation");
         }
     }
@@ -162,7 +166,7 @@ impl Opecode {
         if let Self::Field(ref mut field) = self {
             let len = field.len();
             field[len - 1] += register;
-        }else {
+        } else {
             panic!("invalid operation")
         }
     }
@@ -191,7 +195,7 @@ impl ModRM {
         if let Self::Field(ref mut field) = self {
             *field &= 0b00_111_111;
             *field |= (r#mod & 0b11) << 6;
-        }else {
+        } else {
             panic!("invalid operation");
         }
     }
@@ -200,7 +204,7 @@ impl ModRM {
         if let Self::Field(ref mut field) = self {
             *field &= 0b11_000_111;
             *field |= (reg & 0b111) << 3;
-        }else {
+        } else {
             panic!("invalid operation");
         }
     }
@@ -209,7 +213,7 @@ impl ModRM {
         if let Self::Field(ref mut field) = self {
             *field &= 0b11_111_000;
             *field |= rm & 0b111;
-        }else {
+        } else {
             panic!("invalid operation");
         }
     }
@@ -234,7 +238,7 @@ impl Sib {
         if let Self::Field(ref mut field) = self {
             *field &= 0b00_111_111;
             *field |= (scale & 0b11) << 6;
-        }else {
+        } else {
             panic!("invalid operation");
         }
     }
@@ -243,7 +247,7 @@ impl Sib {
         if let Self::Field(ref mut field) = self {
             *field &= 0b11_000_111;
             *field |= (index & 0b111) << 3;
-        }else {
+        } else {
             panic!("invalid operation");
         }
     }
@@ -252,7 +256,7 @@ impl Sib {
         if let Self::Field(ref mut field) = self {
             *field &= 0b11_000_111;
             *field |= base & 0b111;
-        }else {
+        } else {
             panic!("invalid operation");
         }
     }
