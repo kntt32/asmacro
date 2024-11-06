@@ -1,5 +1,5 @@
 use std::convert::From;
-use std::fmt::{Display, Binary, Error, Formatter};
+use std::fmt::{Binary, Display, Error, Formatter};
 use std::iter::{IntoIterator, Iterator};
 use std::ops::{Deref, DerefMut};
 
@@ -96,7 +96,7 @@ impl<const C: usize, T: Copy + Default> SVec<C, T> {
     pub fn resize_buff<const D: usize>(self) -> SVec<D, T> {
         if D < self.len {
             panic!("too small")
-        }else {
+        } else {
             let mut new_svec = SVec::new();
 
             for element in self {
@@ -174,6 +174,20 @@ impl<const C: usize, T: Copy + Default> From<&[T]> for SVec<C, T> {
 
         let mut new_svec = SVec::new();
         for i in 0..value.len() {
+            new_svec.push(value[i]);
+        }
+        new_svec
+    }
+}
+
+impl<const C: usize, const L: usize, T: Copy + Default> From<[T; L]> for SVec<C, T> {
+    fn from(value: [T; L]) -> SVec<C, T> {
+        if C < L {
+            panic!("buffer overflowed");
+        }
+
+        let mut new_svec = SVec::new();
+        for i in 0..L {
             new_svec.push(value[i]);
         }
         new_svec
