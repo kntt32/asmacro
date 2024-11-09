@@ -1,5 +1,5 @@
-use util::svec::SVec;
 use std::mem::transmute;
+use util::svec::SVec;
 
 #[derive(Clone, Copy, Debug)]
 pub struct MlGen {
@@ -49,11 +49,12 @@ impl MlGen {
         match self.disp {
             Disp::None => (),
             Disp::Disp8(field) => {
-                ml_svec.push(unsafe { transmute::<i8, u8>(field) } );
+                ml_svec.push(unsafe { transmute::<i8, u8>(field) });
             }
             Disp::Disp32(field) => {
                 for i in 0..4 {
-                    ml_svec.push(((unsafe { transmute::<i32, u32>(field) } >> (i * 8)) & 0xff) as u8);
+                    ml_svec
+                        .push(((unsafe { transmute::<i32, u32>(field) } >> (i * 8)) & 0xff) as u8);
                 }
             }
         }
@@ -61,21 +62,24 @@ impl MlGen {
         match self.imm {
             Imm::None => (),
             Imm::Imm8(field) => {
-                ml_svec.push(unsafe { transmute::<i8, u8>(field) } );
+                ml_svec.push(unsafe { transmute::<i8, u8>(field) });
             }
             Imm::Imm16(field) => {
                 for i in 0..2 {
-                    ml_svec.push(((unsafe { transmute::<i16, u16>(field) } >> (i * 8)) & 0xff) as u8);
+                    ml_svec
+                        .push(((unsafe { transmute::<i16, u16>(field) } >> (i * 8)) & 0xff) as u8);
                 }
             }
             Imm::Imm32(field) => {
                 for i in 0..4 {
-                    ml_svec.push(((unsafe { transmute::<i32, u32>(field) } >> (i * 8)) & 0xff) as u8);
+                    ml_svec
+                        .push(((unsafe { transmute::<i32, u32>(field) } >> (i * 8)) & 0xff) as u8);
                 }
             }
             Imm::Imm64(field) => {
                 for i in 0..8 {
-                    ml_svec.push(((unsafe { transmute::<i64, u64>(field) } >> (i * 8)) & 0xff) as u8);
+                    ml_svec
+                        .push(((unsafe { transmute::<i64, u64>(field) } >> (i * 8)) & 0xff) as u8);
                 }
             }
         }
@@ -255,7 +259,7 @@ impl Sib {
 
     pub fn set_base(&mut self, base: u8) {
         if let Self::Field(ref mut field) = self {
-            *field &= 0b11_000_111;
+            *field &= 0b11_111_000;
             *field |= base & 0b111;
         } else {
             panic!("invalid operation");

@@ -1,9 +1,12 @@
-use crate::ml_generator::{Imm, Disp, MlGen};
-use crate::registers::Register;
+use crate::ml_generator::{Disp, Imm, MlGen};
+pub use crate::registers::Register;
 use util::svec::SVec;
 
 mod set_rm64;
 use set_rm64::set_rm64;
+
+#[cfg(test)]
+mod test;
 
 pub fn encode(opecode: SVec<3, u8>, operand: Operand) -> Result<SVec<19, u8>, ()> {
     let mut ml_gen = MlGen::new();
@@ -32,8 +35,15 @@ pub fn encode(opecode: SVec<3, u8>, operand: Operand) -> Result<SVec<19, u8>, ()
             add_reg64_to_opecode(&mut ml_gen, register64)?;
             set_imm64(&mut ml_gen, imm64);
         }
-        _ => {
-            todo!();
+        Operand::Rm64Imm64(rm64, imm64) => {
+            ml_gen.mod_rm.enable();
+            set_rm64(&mut ml_gen, rm64)?;
+            set_imm64(&mut ml_gen, imm64);
+        }
+        Operand::Rm64Imm8(rm64, imm8) => {
+            ml_gen.mod_rm.enable();
+            set_rm64(&mut ml_gen, rm64)?;
+            set_imm8(&mut ml_gen, imm8);
         }
     }
 
@@ -75,12 +85,17 @@ fn set_imm64(ml_gen: &mut MlGen, imm64: i64) {
     ml_gen.imm = Imm::Imm64(imm64);
 }
 
+fn set_imm8(ml_gen: &mut MlGen, imm8: i8) {
+    ml_gen.imm = Imm::Imm8(imm8);
+}
+
 pub enum Operand {
     None,
     Reg64(Register),
     Reg64Rm64(Register, Rm),
     Reg64Imm64(Register, i64),
     Rm64Imm64(Rm, i64),
+    Rm64Imm8(Rm, i8),
 }
 
 pub enum Rm {

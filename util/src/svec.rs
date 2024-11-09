@@ -1,5 +1,6 @@
+use std::cmp::PartialEq;
 use std::convert::From;
-use std::fmt::{Binary, Display, Error, Formatter};
+use std::fmt::{Binary, Display, Error, Formatter, LowerHex};
 use std::iter::{IntoIterator, Iterator};
 use std::ops::{Deref, DerefMut};
 
@@ -166,6 +167,23 @@ impl<const C: usize, T: Copy + Default + Binary> Binary for SVec<C, T> {
     }
 }
 
+impl<const C: usize, T: Copy + Default + LowerHex> LowerHex for SVec<C, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "[")?;
+
+        for i in 0..self.len() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{:x}", self[i])?;
+        }
+
+        write!(f, "]")?;
+
+        Ok(())
+    }
+}
+
 impl<const C: usize, T: Copy + Default> From<&[T]> for SVec<C, T> {
     fn from(value: &[T]) -> SVec<C, T> {
         if C < value.len() {
@@ -200,6 +218,21 @@ impl<const C: usize, T: Copy + Default> IntoIterator for SVec<C, T> {
 
     fn into_iter(self) -> Self::IntoIter {
         SVecIterator::new(self)
+    }
+}
+
+impl<const C: usize, const D: usize, T: Copy + Default + PartialEq> PartialEq<SVec<D, T>> for SVec<C, T> {
+    fn eq(&self, other: &SVec<D, T>) -> bool {
+        if self.len() == other.len() {
+            for i in 0 .. self.len() {
+                if self[i] != other[i] {
+                    return false;
+                }
+            }
+            true
+        }else {
+            false
+        }
     }
 }
 
