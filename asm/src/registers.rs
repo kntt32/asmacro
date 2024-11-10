@@ -123,6 +123,26 @@ impl Register {
         }
     }
 
+    pub fn to_regcode8(self) -> Result<u8, ()> {
+        if self.is_8bit() {
+            Ok((self as usize - Self::Al as usize) as u8)
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn to_regcode64(self) -> Result<u8, ()> {
+        if self.is_64bit() {
+            if self != Self::Rip {
+                Ok((self as usize - Self::Rax as usize) as u8)
+            } else {
+                Err(())
+            }
+        } else {
+            Err(())
+        }
+    }
+
     pub fn to_regcode(self) -> Result<u8, ()> {
         if self.is_64bit() {
             if self == Self::Rip {

@@ -46,7 +46,7 @@ fn main() {
     ml_gen.opecode.set(SVec::from([0xb8]), Some(0));
     ml_gen.imm = Imm::Imm64(123);
     println!("code: {}", ml_gen.encode());*/
-/*
+    /*
     assert_eq!(
         Ok(SVec::from([0x48, 0x83, 0xc4, 0x08])),
         encode(
@@ -54,8 +54,4 @@ fn main() {
             Operand::Rm64Imm8(Rm::Reg(Register::Rsp), 0x8)
         )
     );*/
-    println!("{:x}", encode(
-        SVec::from([0x83]),
-        Operand::Rm64Imm8(Rm::Reg(Register::Rsp), 0x8)
-    ).unwrap());
 }

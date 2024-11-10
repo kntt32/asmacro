@@ -221,16 +221,18 @@ impl<const C: usize, T: Copy + Default> IntoIterator for SVec<C, T> {
     }
 }
 
-impl<const C: usize, const D: usize, T: Copy + Default + PartialEq> PartialEq<SVec<D, T>> for SVec<C, T> {
+impl<const C: usize, const D: usize, T: Copy + Default + PartialEq> PartialEq<SVec<D, T>>
+    for SVec<C, T>
+{
     fn eq(&self, other: &SVec<D, T>) -> bool {
         if self.len() == other.len() {
-            for i in 0 .. self.len() {
+            for i in 0..self.len() {
                 if self[i] != other[i] {
                     return false;
                 }
             }
             true
-        }else {
+        } else {
             false
         }
     }

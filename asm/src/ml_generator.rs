@@ -3,6 +3,8 @@ use util::svec::SVec;
 
 #[derive(Clone, Copy, Debug)]
 pub struct MlGen {
+    pub prefix_group3: bool,
+    pub prefix_group4: bool,
     pub rex_prefix: RexPrefix,
     pub opecode: Opecode,
     pub mod_rm: ModRM,
@@ -11,9 +13,13 @@ pub struct MlGen {
     pub imm: Imm,
 }
 
+pub type Code = SVec<22, u8>;
+
 impl MlGen {
     pub fn new() -> Self {
         MlGen {
+            prefix_group3: false,
+            prefix_group4: false,
             rex_prefix: RexPrefix::None,
             opecode: Opecode::None,
             mod_rm: ModRM::None,
@@ -23,8 +29,15 @@ impl MlGen {
         }
     }
 
-    pub fn encode(self) -> SVec<19, u8> {
+    pub fn encode(self) -> SVec<22, u8> {
         let mut ml_svec = SVec::new();
+
+        if self.prefix_group3 {
+            ml_svec.push(0x66);
+        }
+        if self.prefix_group4 {
+            ml_svec.push(0x67);
+        }
 
         if let RexPrefix::Field(field) = self.rex_prefix {
             ml_svec.push(field);
@@ -88,7 +101,7 @@ impl MlGen {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RexPrefix {
     None,
     Field(u8),
@@ -101,6 +114,14 @@ impl RexPrefix {
 
     pub fn disable(&mut self) {
         *self = Self::None;
+    }
+
+    pub fn is_enabled(self) -> bool {
+        if self == Self::None {
+            false
+        } else {
+            true
+        }
     }
 
     pub fn set_w(&mut self, value: bool) {
@@ -194,6 +215,13 @@ impl ModRM {
 
     pub fn disable(&mut self) {
         *self = Self::None;
+    }
+
+    pub fn is_enabled(self) -> bool {
+        match self {
+            Self::None => false,
+            Self::Field(_) => true,
+        }
     }
 
     pub fn set_mod(&mut self, r#mod: u8) {
