@@ -177,8 +177,51 @@ fn set_mod_rm_rm_scalenone0(
     disp: i32,
 ) -> Result<(), ()> {
     if index.is_64bit() && base.is_64bit() {
-        todo!("todo")
-    }else {
+        ml_gen.mod_rm.set_rm(0b100);
+        ml_gen.sib.enable();
+
+        if disp == 0 && base != Register::Rbp {
+            ml_gen.disp = Disp::None;
+            ml_gen.mod_rm.set_mod(0b00);
+        } else if i8::MIN as i32 <= disp && disp <= i8::MAX as i32 {
+            ml_gen.disp = Disp::Disp8(disp as i8);
+            ml_gen.mod_rm.set_mod(0b01);
+        } else {
+            ml_gen.disp = Disp::Disp32(disp);
+            ml_gen.mod_rm.set_mod(0b10);
+        }
+
+        let regcode = base.to_regcode64()?;
+        ml_gen.sib.set_base(regcode & 0b111);
+        if regcode & 0b1000 != 0 {
+            if !ml_gen.rex_prefix.is_enabled() {
+                ml_gen.rex_prefix.enable();
+            }
+            ml_gen.rex_prefix.set_b(true);
+        }
+
+        if scale == 0 {
+            ml_gen.sib.set_scale(0);
+            ml_gen.sib.set_index(0b100);
+        } else {
+            let scale_field = match scale {
+                1 => 0b00,
+                2 => 0b01,
+                4 => 0b10,
+                8 => 0b11,
+                _ => return Err(()),
+            };
+            ml_gen.sib.set_scale(scale_field);
+            let regcode = index.to_regcode64()?;
+            ml_gen.sib.set_index(regcode & 0b111);
+            if regcode & 0b1000 != 0 {
+                if !ml_gen.rex_prefix.is_enabled() {
+                    ml_gen.rex_prefix.enable();
+                }
+                ml_gen.rex_prefix.set_x(true);
+            }
+        }
+    } else {
         todo!("todo")
     }
 
