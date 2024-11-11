@@ -29,7 +29,7 @@ impl MlGen {
         }
     }
 
-    pub fn encode(self) -> SVec<22, u8> {
+    pub fn build(self) -> SVec<22, u8> {
         let mut ml_svec = SVec::new();
 
         if self.prefix_group3 {

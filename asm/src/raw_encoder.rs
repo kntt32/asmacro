@@ -33,7 +33,7 @@ pub fn raw_encode(
         }
     }
 
-    Ok(ml_gen.encode())
+    Ok(ml_gen.build())
 }
 
 fn set_opecode(ml_gen: &mut MlGen, opecode: Opecode) -> Result<(), ()> {

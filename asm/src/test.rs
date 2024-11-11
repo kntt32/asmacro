@@ -76,6 +76,7 @@ fn and_rsp_imm() {
 
 // 48 85 c0             	test   %rax,%rax
 // REX.W + 85 /rTEST r/m64,r64
+#[test]
 fn test_rax_rax() {
     assert_eq!(
         Ok(SVec::from([0x48, 0x85, 0xc0])),
