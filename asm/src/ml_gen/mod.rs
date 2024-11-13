@@ -1,7 +1,9 @@
+pub use encoder::*;
+pub use raw_encoder::{AddRegMode, ImmMode, ModRmMode, OpecodeSVec, Rel, RexMode, Rm};
 use std::mem::transmute;
 use util::svec::SVec;
 
-pub use raw_encoder::*;
+pub mod encoder;
 pub mod raw_encoder;
 
 #[derive(Clone, Copy, Debug)]

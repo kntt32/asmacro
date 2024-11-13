@@ -1,12 +1,12 @@
-use crate::registers::Register;
 use super::*;
+use crate::registers::Register;
 use util::svec::SVec;
 
-type Opecode = SVec<3, u8>;
+pub type OpecodeSVec = SVec<3, u8>;
 
 impl MlGen {
     pub fn raw_encode(
-        opecode: Opecode,
+        opecode: OpecodeSVec,
         rex: RexMode,
         mod_rm: ModRmMode,
         imm: ImmMode,
@@ -25,7 +25,7 @@ impl MlGen {
         Ok(ml_gen)
     }
 
-    fn set_opecode(&mut self, opecode: Opecode) -> Result<(), ()> {
+    fn set_opecode(&mut self, opecode: OpecodeSVec) -> Result<(), ()> {
         if opecode.len() == 0 {
             return Err(());
         };

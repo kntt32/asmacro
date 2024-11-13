@@ -15,7 +15,9 @@ fn call_rax() {
             ImmMode::None,
             AddRegMode::None,
             Rel::None,
-        ).unwrap().build()
+        )
+        .unwrap()
+        .build()
     )
 }
 
@@ -39,7 +41,9 @@ fn push_ref_rip_0x2fa2() {
             ImmMode::None,
             AddRegMode::None,
             Rel::None,
-        ).unwrap().build()
+        )
+        .unwrap()
+        .build()
     )
 }
 
@@ -56,7 +60,9 @@ fn mov_rdx_rsp() {
             ImmMode::None,
             AddRegMode::None,
             Rel::None,
-        ).unwrap().build()
+        )
+        .unwrap()
+        .build()
     )
 }
 
@@ -73,7 +79,9 @@ fn and_rsp_imm() {
             ImmMode::Ib(-16),
             AddRegMode::None,
             Rel::None,
-        ).unwrap().build()
+        )
+        .unwrap()
+        .build()
     )
 }
 
@@ -90,7 +98,9 @@ fn test_rax_rax() {
             ImmMode::None,
             AddRegMode::None,
             Rel::None,
-        ).unwrap().build()
+        )
+        .unwrap()
+        .build()
     )
 }
 
@@ -107,6 +117,8 @@ fn test_call_1030() {
             ImmMode::None,
             AddRegMode::None,
             Rel::Cd(0x1030 - 0x1107),
-        ).unwrap().build()
+        )
+        .unwrap()
+        .build()
     )
 }
