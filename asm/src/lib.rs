@@ -1,8 +1,6 @@
 mod registers;
 
-pub mod raw_encoder;
-
-pub mod ml_generator;
+pub mod ml_gen;
 
 #[cfg(test)]
 mod test;

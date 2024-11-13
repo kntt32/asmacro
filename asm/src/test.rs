@@ -1,6 +1,5 @@
 use super::*;
-use ml_generator::*;
-use raw_encoder::*;
+use ml_gen::*;
 use registers::*;
 use util::svec::SVec;
 
@@ -8,14 +7,15 @@ use util::svec::SVec;
 #[test]
 fn call_rax() {
     assert_eq!(
-        Ok(SVec::from([0xff, 0xd0])),
-        raw_encode(
+        Code::from([0xff, 0xd0]),
+        MlGen::raw_encode(
             SVec::from([0xff]),
             RexMode::None,
             ModRmMode::Dight(2, Rm::Reg(Register::Rax)),
             ImmMode::None,
-            AddRegMode::None
-        )
+            AddRegMode::None,
+            Rel::None,
+        ).unwrap().build()
     )
 }
 
@@ -23,8 +23,8 @@ fn call_rax() {
 #[test]
 fn push_ref_rip_0x2fa2() {
     assert_eq!(
-        Ok(SVec::from([0xff, 0x35, 0xa2, 0x2f, 0x00, 0x00])),
-        raw_encode(
+        Code::from([0xff, 0x35, 0xa2, 0x2f, 0x00, 0x00]),
+        MlGen::raw_encode(
             SVec::from([0xff]),
             RexMode::None,
             ModRmMode::Dight(
@@ -38,7 +38,8 @@ fn push_ref_rip_0x2fa2() {
             ),
             ImmMode::None,
             AddRegMode::None,
-        )
+            Rel::None,
+        ).unwrap().build()
     )
 }
 
@@ -47,14 +48,15 @@ fn push_ref_rip_0x2fa2() {
 #[test]
 fn mov_rdx_rsp() {
     assert_eq!(
-        Ok(SVec::from([0x48, 0x89, 0xe2])),
-        raw_encode(
+        Code::from([0x48, 0x89, 0xe2]),
+        MlGen::raw_encode(
             SVec::from([0x89]),
             RexMode::RexW,
             ModRmMode::R(Register::Rsp, Rm::Reg(Register::Rdx)),
             ImmMode::None,
             AddRegMode::None,
-        )
+            Rel::None,
+        ).unwrap().build()
     )
 }
 
@@ -63,14 +65,15 @@ fn mov_rdx_rsp() {
 #[test]
 fn and_rsp_imm() {
     assert_eq!(
-        Ok(SVec::from([0x48, 0x83, 0xe4, 0xf0])),
-        raw_encode(
+        Code::from([0x48, 0x83, 0xe4, 0xf0]),
+        MlGen::raw_encode(
             SVec::from([0x83]),
             RexMode::RexW,
             ModRmMode::Dight(4, Rm::Reg(Register::Rsp)),
             ImmMode::Ib(-16),
             AddRegMode::None,
-        )
+            Rel::None,
+        ).unwrap().build()
     )
 }
 
@@ -79,15 +82,31 @@ fn and_rsp_imm() {
 #[test]
 fn test_rax_rax() {
     assert_eq!(
-        Ok(SVec::from([0x48, 0x85, 0xc0])),
-        raw_encode(
+        Code::from([0x48, 0x85, 0xc0]),
+        MlGen::raw_encode(
             SVec::from([0x85]),
             RexMode::RexW,
             ModRmMode::R(Register::Rax, Rm::Reg(Register::Rax)),
             ImmMode::None,
             AddRegMode::None,
-        )
+            Rel::None,
+        ).unwrap().build()
     )
 }
 
-//
+// e8 29 ff ff ff       	call   1030
+// E8 cd CALL rel32
+#[test]
+fn test_call_1030() {
+    assert_eq!(
+        Code::from([0xe8, 0x29, 0xff, 0xff, 0xff]),
+        MlGen::raw_encode(
+            SVec::from([0xe8]),
+            RexMode::None,
+            ModRmMode::None,
+            ImmMode::None,
+            AddRegMode::None,
+            Rel::Cd(0x1030 - 0x1107),
+        ).unwrap().build()
+    )
+}

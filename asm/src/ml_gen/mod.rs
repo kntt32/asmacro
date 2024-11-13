@@ -1,6 +1,9 @@
 use std::mem::transmute;
 use util::svec::SVec;
 
+pub use raw_encoder::*;
+pub mod raw_encoder;
+
 #[derive(Clone, Copy, Debug)]
 pub struct MlGen {
     pub prefix_group3: bool,
