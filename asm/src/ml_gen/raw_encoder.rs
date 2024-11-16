@@ -11,7 +11,7 @@ impl MlGen {
         mod_rm: ModRmMode,
         imm: ImmMode,
         add_reg: AddRegMode,
-        rel: Rel,
+        rel: RelMode,
     ) -> Result<MlGen, ()> {
         let mut ml_gen = MlGen::new();
 
@@ -245,10 +245,10 @@ impl MlGen {
         Ok(())
     }
 
-    fn set_rel(&mut self, rel: Rel) {
+    fn set_rel(&mut self, rel: RelMode) {
         match rel {
-            Rel::Cd(disp) => self.disp = Disp::Disp32(disp),
-            Rel::None => (),
+            RelMode::Cd(disp) => self.rel = Rel::Rel32(disp),
+            RelMode::None => (),
         }
     }
 }
@@ -292,7 +292,7 @@ pub enum Rm {
     },
 }
 
-pub enum Rel {
+pub enum RelMode {
     None,
     Cd(i32),
 }

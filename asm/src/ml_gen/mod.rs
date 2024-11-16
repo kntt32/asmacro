@@ -1,5 +1,5 @@
 pub use encoder::*;
-pub use raw_encoder::{AddRegMode, ImmMode, ModRmMode, OpecodeSVec, Rel, RexMode, Rm};
+pub use raw_encoder::{AddRegMode, ImmMode, ModRmMode, OpecodeSVec, RelMode, RexMode, Rm};
 use std::mem::transmute;
 use util::svec::SVec;
 
@@ -12,6 +12,7 @@ pub struct MlGen {
     pub prefix_group4: bool,
     pub rex_prefix: RexPrefix,
     pub opecode: Opecode,
+    pub rel: Rel,
     pub mod_rm: ModRM,
     pub sib: Sib,
     pub disp: Disp,
@@ -27,6 +28,7 @@ impl MlGen {
             prefix_group4: false,
             rex_prefix: RexPrefix::None,
             opecode: Opecode::None,
+            rel: Rel::None,
             mod_rm: ModRM::None,
             sib: Sib::None,
             disp: Disp::None,
@@ -49,11 +51,20 @@ impl MlGen {
         }
 
         if let Opecode::Field(field) = self.opecode {
+            if field.len() == 0 {
+                panic!("invalid operation");
+            }
             for value in field {
                 ml_svec.push(value);
             }
         } else {
             panic!("invalid operation");
+        }
+
+        if let Rel::Rel32(field) = self.rel {
+            for i in 0 .. 4 {
+                ml_svec.push(((unsafe { transmute::<i32, u32>(field) } >> (i*8)) & 0xff) as u8);
+            }
         }
 
         if let ModRM::Field(field) = self.mod_rm {
@@ -178,6 +189,12 @@ impl RexPrefix {
 pub enum Opecode {
     None,
     Field(SVec<3, u8>),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Rel {
+    None,
+    Rel32(i32),
 }
 
 impl Opecode {

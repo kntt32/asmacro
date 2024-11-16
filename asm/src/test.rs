@@ -14,7 +14,7 @@ fn call_rax() {
             ModRmMode::Dight(2, Rm::Reg(Register::Rax)),
             ImmMode::None,
             AddRegMode::None,
-            Rel::None,
+            RelMode::None,
         )
         .unwrap()
         .build()
@@ -40,7 +40,7 @@ fn push_ref_rip_0x2fa2() {
             ),
             ImmMode::None,
             AddRegMode::None,
-            Rel::None,
+            RelMode::None,
         )
         .unwrap()
         .build()
@@ -59,7 +59,7 @@ fn mov_rdx_rsp() {
             ModRmMode::R(Register::Rsp, Rm::Reg(Register::Rdx)),
             ImmMode::None,
             AddRegMode::None,
-            Rel::None,
+            RelMode::None,
         )
         .unwrap()
         .build()
@@ -78,7 +78,7 @@ fn and_rsp_imm() {
             ModRmMode::Dight(4, Rm::Reg(Register::Rsp)),
             ImmMode::Ib(-16),
             AddRegMode::None,
-            Rel::None,
+            RelMode::None,
         )
         .unwrap()
         .build()
@@ -97,7 +97,7 @@ fn test_rax_rax() {
             ModRmMode::R(Register::Rax, Rm::Reg(Register::Rax)),
             ImmMode::None,
             AddRegMode::None,
-            Rel::None,
+            RelMode::None,
         )
         .unwrap()
         .build()
@@ -116,7 +116,7 @@ fn test_call_1030() {
             ModRmMode::None,
             ImmMode::None,
             AddRegMode::None,
-            Rel::Cd(0x1030 - 0x1107),
+            RelMode::Cd(0x1030 - 0x1107),
         )
         .unwrap()
         .build()
