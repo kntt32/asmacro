@@ -2,6 +2,7 @@ use std::cmp::PartialEq;
 use std::convert::From;
 use std::fmt::{Binary, Display, Error, Formatter, LowerHex};
 use std::iter::{IntoIterator, Iterator};
+use std::mem::{size_of, transmute};
 use std::ops::{Deref, DerefMut};
 
 /// SVec is a vector collection type using only stack.
@@ -54,6 +55,24 @@ impl<const C: usize, T: Copy + Default> SVec<C, T> {
             self.array[self.len - 1] = value;
             self
         }
+    }
+
+    /// Push value as little indian
+    /// Size must be a multipile of T
+    pub fn push_raw<U: Copy>(&mut self, value: U) -> &mut Self {
+        let size = size_of::<U>();
+        let t_size = size_of::<T>();
+
+        if size % t_size != 0 {
+            panic!("invalid type");
+        }
+
+        let ptr = &value as *const U as *const T;
+        for i in 0..size / size_of::<T>() {
+            let v: T = unsafe { *(ptr.add(i)) };
+            self.push(v);
+        }
+        panic!()
     }
 
     /// Push value to SVec

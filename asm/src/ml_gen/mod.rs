@@ -62,8 +62,8 @@ impl MlGen {
         }
 
         if let Rel::Rel32(field) = self.rel {
-            for i in 0 .. 4 {
-                ml_svec.push(((unsafe { transmute::<i32, u32>(field) } >> (i*8)) & 0xff) as u8);
+            for i in 0..4 {
+                ml_svec.push(((unsafe { transmute::<i32, u32>(field) } >> (i * 8)) & 0xff) as u8);
             }
         }
 
