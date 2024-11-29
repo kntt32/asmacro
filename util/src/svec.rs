@@ -2,7 +2,7 @@ use std::cmp::PartialEq;
 use std::convert::From;
 use std::fmt::{Binary, Display, Error, Formatter, LowerHex};
 use std::iter::{IntoIterator, Iterator};
-use std::mem::{size_of, transmute};
+use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
 
 /// SVec is a vector collection type using only stack.
@@ -75,7 +75,7 @@ impl<const C: usize, T: Copy + Default> SVec<C, T> {
         panic!()
     }
 
-    /// Push value to SVec
+    /// Pop value to SVec
     pub fn pop(&mut self) -> T {
         if self.len() == 0 {
             panic!("zero length")
@@ -282,5 +282,15 @@ impl<const C: usize, T: Copy + Default> Iterator for SVecIterator<C, T> {
             self.index += 1;
             Some(self.svec[self.index - 1])
         }
+    }
+}
+
+impl<const C: usize, T: Copy + Default> FromIterator<T> for SVec<C, T> {
+    fn from_iter<U>(iter: U) -> Self where U: IntoIterator<Item = T> {
+        let mut new_svec = SVec::new();
+        for i in iter {
+            new_svec.push(i);
+        }
+        new_svec
     }
 }
