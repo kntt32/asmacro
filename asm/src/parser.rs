@@ -20,13 +20,6 @@ pub struct Line<'a> {
     mnemonic: Option<&'a str>,
     operands: SVec<2, &'a str>, 
 }
-/*
-struct AsmLine {
-  char *label;
-  char *mnemonic;
-  char *operands[MAX_OPERAND];
-  int num_opr;
-};*/
 
 impl<'a> Parser<'a> {
     fn remove_comment(code: &str) -> &str {
