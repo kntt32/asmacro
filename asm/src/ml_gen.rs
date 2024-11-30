@@ -1,9 +1,5 @@
-pub use encoder::*;
-pub use raw_encoder::{AddRegMode, ImmMode, ModRmMode, OpecodeSVec, RelMode, RexMode, Rm};
 use std::mem::transmute;
 use util::svec::SVec;
-
-pub mod raw_encoder;
 
 #[derive(Clone, Copy, Debug)]
 pub struct MlGen {
@@ -18,7 +14,7 @@ pub struct MlGen {
     pub imm: Imm,
 }
 
-pub type Code = SVec<22, u8>;
+pub type MlBin = SVec<22, u8>;
 
 impl MlGen {
     pub fn new() -> Self {
@@ -35,7 +31,7 @@ impl MlGen {
         }
     }
 
-    pub fn build(self) -> SVec<22, u8> {
+    pub fn build(self) -> MlBin {
         let mut ml_svec = SVec::new();
 
         if self.prefix_group3 {

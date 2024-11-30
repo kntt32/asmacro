@@ -1,6 +1,6 @@
 use std::iter::Iterator;
-use util::svec::SVec;
 use std::str::Lines;
+use util::svec::SVec;
 
 #[derive(Clone)]
 pub struct Parser<'a> {
@@ -10,7 +10,10 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn new(code: &'a str) -> Self {
-        Parser { line_iter: code.lines(), line: 0 }
+        Parser {
+            line_iter: code.lines(),
+            line: 0,
+        }
     }
 }
 
@@ -18,14 +21,14 @@ impl<'a> Parser<'a> {
 pub struct Line<'a> {
     label: Option<&'a str>,
     mnemonic: Option<&'a str>,
-    operands: SVec<2, &'a str>, 
+    operands: SVec<2, &'a str>,
 }
 
 impl<'a> Parser<'a> {
     fn remove_comment(code: &str) -> &str {
         if let Some((left, _)) = code.split_once("//") {
             left
-        }else {
+        } else {
             code
         }
     }
@@ -37,10 +40,10 @@ impl<'a> Parser<'a> {
 
             if is_valid_keyword(left) {
                 (Some(left), right)
-            }else {
+            } else {
                 (None, code)
             }
-        }else {
+        } else {
             (None, code)
         }
     }
@@ -52,11 +55,11 @@ impl<'a> Parser<'a> {
     fn get_mnemonic(code: &str) -> (Option<&str>, &str) {
         if code.trim().contains(' ') {
             Self::get_label_mnemonic_helper(code, ' ')
-        }else {
+        } else {
             (Some(code.trim()), "")
         }
     }
-    
+
     fn get_operands(code: &str) -> SVec<2, &str> {
         let code = code.trim();
         code.split(',').collect()
@@ -67,7 +70,6 @@ impl<'a> Iterator for Parser<'a> {
     type Item = (usize, Line<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
-
         self.line += 1;
         let Some(mut code) = self.line_iter.next() else {
             return None;
@@ -77,8 +79,15 @@ impl<'a> Iterator for Parser<'a> {
         let (label, code) = Self::get_label(code);
         let (mnemonic, code) = Self::get_mnemonic(code);
         let operands = Self::get_operands(code);
-        
-        Some((self.line, Line { label: label, mnemonic: mnemonic, operands: operands }))
+
+        Some((
+            self.line,
+            Line {
+                label: label,
+                mnemonic: mnemonic,
+                operands: operands,
+            },
+        ))
     }
 }
 

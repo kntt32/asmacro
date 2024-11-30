@@ -137,6 +137,13 @@ impl<const C: usize, T: Copy + Default> SVec<C, T> {
 
         vec
     }
+
+    pub const fn value(arr: [T; C], len: usize) -> SVec<C, T> {
+        SVec {
+            array: arr,
+            len: len,
+        }
+    }
 }
 
 impl<const C: usize, T: Copy + Default> Deref for SVec<C, T> {
@@ -286,7 +293,10 @@ impl<const C: usize, T: Copy + Default> Iterator for SVecIterator<C, T> {
 }
 
 impl<const C: usize, T: Copy + Default> FromIterator<T> for SVec<C, T> {
-    fn from_iter<U>(iter: U) -> Self where U: IntoIterator<Item = T> {
+    fn from_iter<U>(iter: U) -> Self
+    where
+        U: IntoIterator<Item = T>,
+    {
         let mut new_svec = SVec::new();
         for i in iter {
             new_svec.push(i);
