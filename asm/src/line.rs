@@ -1,22 +1,54 @@
 use super::ml_gen::*;
-use super::parser::Line;
 use super::*;
 use util::svec::SVec;
 
+#[derive(Clone, Copy, Debug)]
+pub struct Line<'a> {
+    label: Option<&'a str>,
+    mnemonic: Option<&'a str>,
+    operands: SVec<2, &'a str>,
+}
+
 impl<'a> Line<'a> {
-    pub fn encode(self) -> Result<MlBin, ()> {
-        for i in ops_list {
-            if let Ok(mlgen) = self.encode_with_operator(*i) {
-                return Ok(mlgen);
-            }
+    pub fn new(
+        label: Option<&'a str>,
+        mnemonic: Option<&'a str>,
+        operands: SVec<2, &'a str>,
+    ) -> Self {
+        Line {
+            label: label,
+            mnemonic: mnemonic,
+            operands: operands,
         }
-        Err(())
     }
 
-    fn encode_with_operator(&self, op: Operator) -> Result<MlBin, ()> {
-        todo!("todo");
+    pub fn encode(self) -> Result<EncodedLine<'a>, ()> {
+        if self.mnemonic == None {
+            Ok(EncodedLine {
+                label: self.label,
+                code: None,
+                len: 0,
+            })
+        } else {
+            for i in ops_list {
+                if let Ok(encoded_line) = self.encode_with_operator(*i) {
+                    return Ok(encoded_line);
+                }
+            }
+            Err(())
+        }
+    }
+
+    fn encode_with_operator(&self, op: Operator) -> Result<EncodedLine<'a>, ()> {
+        todo!();
         Err(())
     }
+}
+
+struct EncodedLine<'a> {
+    label: Option<&'a str>,
+    code: Option<MlBin>,
+    len: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -92,6 +124,22 @@ enum OperandType {
     Imm64,
     Reg64,
     Rm64,
+}
+
+impl OperandType {
+    fn is_match(self, expr: &str) -> bool {
+        match self {
+            OperandType::None => {
+                if expr.is_empty() {
+                    true
+                } else {
+                    false
+                }
+            }
+            OperandType::Imm64 => todo!("todo"),
+            _ => todo!(),
+        }
+    }
 }
 
 #[derive(Clone, Copy)]

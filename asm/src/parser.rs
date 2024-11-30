@@ -1,3 +1,4 @@
+use super::line::Line;
 use std::iter::Iterator;
 use std::str::Lines;
 use util::svec::SVec;
@@ -15,13 +16,6 @@ impl<'a> Parser<'a> {
             line: 0,
         }
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Line<'a> {
-    label: Option<&'a str>,
-    mnemonic: Option<&'a str>,
-    operands: SVec<2, &'a str>,
 }
 
 impl<'a> Parser<'a> {
@@ -53,21 +47,42 @@ impl<'a> Parser<'a> {
     }
 
     fn get_mnemonic(code: &str) -> (Option<&str>, &str) {
-        if code.trim().contains(' ') {
+        let code = code.trim();
+        if code.contains(' ') {
             Self::get_label_mnemonic_helper(code, ' ')
+        } else if !code.is_empty() {
+            (Some(code), "")
         } else {
-            (Some(code.trim()), "")
+            (None, "")
         }
     }
 
-    fn get_operands(code: &str) -> SVec<2, &str> {
+    fn get_operands(code: &str) -> Result<SVec<2, &str>, ()> {
         let code = code.trim();
-        code.split(',').collect()
+        let mut iter = code.split(',');
+        let mut svec = SVec::new();
+
+        for i in 0..2 {
+            if let Some(s) = iter.next() {
+                let trimed_s = s.trim();
+                if !trimed_s.is_empty() {
+                    svec.push(trimed_s);
+                }
+            } else {
+                break;
+            }
+        }
+
+        if let None = iter.next() {
+            Ok(svec)
+        } else {
+            Err(())
+        }
     }
 }
 
 impl<'a> Iterator for Parser<'a> {
-    type Item = (usize, Line<'a>);
+    type Item = Result<(usize, Line<'a>), usize>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.line += 1;
@@ -78,16 +93,11 @@ impl<'a> Iterator for Parser<'a> {
         code = Self::remove_comment(code);
         let (label, code) = Self::get_label(code);
         let (mnemonic, code) = Self::get_mnemonic(code);
-        let operands = Self::get_operands(code);
+        let Ok(operands) = Self::get_operands(code) else {
+            return Some(Err(self.line));
+        };
 
-        Some((
-            self.line,
-            Line {
-                label: label,
-                mnemonic: mnemonic,
-                operands: operands,
-            },
-        ))
+        Some(Ok((self.line, Line::new(label, mnemonic, operands))))
     }
 }
 
