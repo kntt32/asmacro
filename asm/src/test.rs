@@ -7,7 +7,7 @@ use util::svec::SVec;
 #[test]
 fn call_rax() {
     assert_eq!(
-        Code::from([0xff, 0xd0]),
+        MlBin::from([0xff, 0xd0]),
         MlGen::raw_encode(
             SVec::from([0xff]),
             RexMode::None,
@@ -25,7 +25,7 @@ fn call_rax() {
 #[test]
 fn push_ref_rip_0x2fa2() {
     assert_eq!(
-        Code::from([0xff, 0x35, 0xa2, 0x2f, 0x00, 0x00]),
+        MlBin::from([0xff, 0x35, 0xa2, 0x2f, 0x00, 0x00]),
         MlGen::raw_encode(
             SVec::from([0xff]),
             RexMode::None,
@@ -52,7 +52,7 @@ fn push_ref_rip_0x2fa2() {
 #[test]
 fn mov_rdx_rsp() {
     assert_eq!(
-        Code::from([0x48, 0x89, 0xe2]),
+        MlBin::from([0x48, 0x89, 0xe2]),
         MlGen::raw_encode(
             SVec::from([0x89]),
             RexMode::RexW,
@@ -71,7 +71,7 @@ fn mov_rdx_rsp() {
 #[test]
 fn and_rsp_imm() {
     assert_eq!(
-        Code::from([0x48, 0x83, 0xe4, 0xf0]),
+        MlBin::from([0x48, 0x83, 0xe4, 0xf0]),
         MlGen::raw_encode(
             SVec::from([0x83]),
             RexMode::RexW,
@@ -90,7 +90,7 @@ fn and_rsp_imm() {
 #[test]
 fn test_rax_rax() {
     assert_eq!(
-        Code::from([0x48, 0x85, 0xc0]),
+        MlBin::from([0x48, 0x85, 0xc0]),
         MlGen::raw_encode(
             SVec::from([0x85]),
             RexMode::RexW,
@@ -109,7 +109,7 @@ fn test_rax_rax() {
 #[test]
 fn test_call_1030() {
     assert_eq!(
-        Code::from([0xe8, 0x29, 0xff, 0xff, 0xff]),
+        MlBin::from([0xe8, 0x29, 0xff, 0xff, 0xff]),
         MlGen::raw_encode(
             SVec::from([0xe8]),
             RexMode::None,
