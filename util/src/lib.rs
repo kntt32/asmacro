@@ -4,5 +4,5 @@ pub mod svec;
 /// Dynamic code execluion
 pub mod dyn_fn;
 
-/// String to Int
-pub mod stoi;
+/// Miscellaneous functions
+pub mod functions;

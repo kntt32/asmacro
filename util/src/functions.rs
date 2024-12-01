@@ -101,3 +101,24 @@ pub fn stoi_hex(s: &str) -> Option<usize> {
         ],
     )
 }
+
+/*
+/// Matching string
+pub fn match_str(mut s: &str, rule: &[StrMatch]) -> Option<[&str]> {
+    for m in rule {
+        match m {
+            WhiteSpace => s = s.trim_start(),
+            Number => {
+                if !stoi(s).is_some() {  }
+            }
+        }
+    }
+}*/
+
+enum MatchStr<'a> {
+    WhiteSpace,
+    Number,
+    Char(char),
+    Str(&'a str),
+    Custom(fn(&str) -> bool),
+}

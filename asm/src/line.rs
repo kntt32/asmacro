@@ -1,5 +1,6 @@
 use super::ml_gen::*;
 use super::*;
+use util::functions::stoi;
 use util::svec::SVec;
 
 #[derive(Clone, Copy, Debug)]
@@ -128,6 +129,26 @@ enum OperandType {
 
 impl OperandType {
     fn is_match(self, expr: &str) -> bool {
+        fn is_reg64(expr: &str) -> bool {
+            for s in [
+                "rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rdi", "rsi", "r8", "r9", "r10", "r11",
+                "r12", "r13", "r14", "r15", "rip",
+            ] {
+                if expr == s {
+                    return true;
+                }
+            }
+            false
+        }
+
+        fn is_rm64(expr: &str) -> bool {
+            if is_reg64(expr) {
+                true
+            } else {
+                todo!()
+            }
+        }
+
         match self {
             OperandType::None => {
                 if expr.is_empty() {
@@ -136,7 +157,8 @@ impl OperandType {
                     false
                 }
             }
-            OperandType::Imm64 => todo!("todo"),
+            OperandType::Imm64 => stoi(expr).is_some(),
+            OperandType::Reg64 => is_reg64(expr),
             _ => todo!(),
         }
     }
