@@ -1,4 +1,5 @@
 use asm::parser::*;
+use util::functions::*;
 
 fn main() {
     let parse = Parser::new(
