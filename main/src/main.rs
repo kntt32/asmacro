@@ -17,6 +17,6 @@ main:
     );
 
     for i in parse {
-        println!("{:?}", i);
+        println!("{:?}, {:?}", i, i.unwrap().1.get_opindex());
     }
 }

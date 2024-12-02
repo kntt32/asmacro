@@ -1,6 +1,7 @@
 use super::ml_gen::*;
 use super::*;
 use util::functions::stoi;
+use util::functions::{match_str, MatchStr};
 use util::svec::SVec;
 
 #[derive(Clone, Copy, Debug)]
@@ -21,6 +22,27 @@ impl<'a> Line<'a> {
             mnemonic: mnemonic,
             operands: operands,
         }
+    }
+
+    pub fn get_opindex(self) -> Option<usize> {
+        for i in 0..ops_list.len() {
+            if self.mnemonic.is_some()
+                && self.mnemonic? == ops_list[i].mnemonic
+                && ops_list[i].operands.len() == self.operands.len()
+            {
+                let mut flag = true;
+                for k in 0..ops_list[i].operands.len() {
+                    if !ops_list[i].operands[k].is_match(self.operands[k]) {
+                        flag = false;
+                        break;
+                    }
+                }
+                if flag {
+                    return Some(i);
+                }
+            }
+        }
+        return None;
     }
 
     pub fn encode(self) -> Result<EncodedLine<'a>, ()> {
@@ -159,6 +181,31 @@ impl OperandType {
             }
             OperandType::Imm64 => stoi(expr).is_some(),
             OperandType::Reg64 => is_reg64(expr),
+            OperandType::Rm64 => {
+                let mut flag = false;
+                for matching in [
+                    &[
+                        MatchStr::Char('['),
+                        MatchStr::Custom(is_reg64),
+                        MatchStr::Char('+'),
+                        MatchStr::Custom(is_reg64),
+                        MatchStr::Char('*'),
+                        MatchStr::Number,
+                        MatchStr::Char(']'),
+                    ][..],
+                    &[
+                        MatchStr::Char('['),
+                        MatchStr::Custom(is_reg64),
+                        MatchStr::Char(']'),
+                    ][..],
+                    &[MatchStr::Custom(is_reg64)][..],
+                ] {
+                    if match_str(expr, matching).is_some() {
+                        flag = true;
+                    }
+                }
+                flag
+            }
             _ => todo!(),
         }
     }
