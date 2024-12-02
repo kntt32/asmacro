@@ -91,13 +91,22 @@ pub fn stoi_hex(s: &str) -> Option<usize> {
 }
 
 /// Matching string
+/// # Example
+/// ```
+/// use util::functions::*;
+/// let matching = [MatchStr::Char('['), MatchStr::Str("A"), MatchStr::Number, MatchStr::Char(']')];
+/// assert_eq!(
+///     Some(vec!["[", "A", "123", "]"]),
+///     match_str("[ A 123]", &matching),
+/// );
+/// ```
 pub fn match_str<'a>(mut s: &'a str, rule: &[MatchStr<'_>]) -> Option<Vec<&'a str>> {
     let mut results = Vec::new();
 
     fn match_helper<'b>(
         s: &'b str,
         next_rule: Option<&MatchStr<'_>>,
-        matching_fn: &impl Fn(&str) -> bool,
+        matching_fn: impl Fn(&str) -> bool,
     ) -> Option<(&'b str, &'b str)> {
         let mut left = s.split_ascii_whitespace().next().or(Some("")).unwrap();
 
@@ -118,12 +127,12 @@ pub fn match_str<'a>(mut s: &'a str, rule: &[MatchStr<'_>]) -> Option<Vec<&'a st
 
         match rule[i] {
             MatchStr::Number => {
-                let (left, right) = match_helper(s, rule.get(i + 1), &|s| stoi(s).is_some())?;
+                let (left, right) = match_helper(s, rule.get(i + 1), |s| stoi(s).is_some())?;
                 results.push(left);
                 s = right;
             }
             MatchStr::Str(matching_s) => {
-                let (left, right) = match_helper(s, rule.get(i + 1), &|s| s == matching_s)?;
+                let (left, right) = match_helper(s, rule.get(i + 1), |s| s == matching_s)?;
                 results.push(left);
                 s = right;
             }
@@ -136,7 +145,7 @@ pub fn match_str<'a>(mut s: &'a str, rule: &[MatchStr<'_>]) -> Option<Vec<&'a st
                 s = s_split.1;
             }
             MatchStr::Custom(matching_fn) => {
-                let (left, right) = match_helper(s, rule.get(i + 1), &matching_fn)?;
+                let (left, right) = match_helper(s, rule.get(i + 1), matching_fn)?;
                 results.push(left);
                 s = right;
             }
@@ -145,6 +154,7 @@ pub fn match_str<'a>(mut s: &'a str, rule: &[MatchStr<'_>]) -> Option<Vec<&'a st
     Some(results)
 }
 
+/// Matching Rule for util::functions::match_str
 pub enum MatchStr<'a> {
     Number,
     Str(&'a str),
