@@ -18,6 +18,22 @@ pub struct MlGen {
     pub imm: Imm,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct DynMlBin {
+    mlbin: MlBin,
+    index: usize,
+    len: usize,
+}
+
+impl DynMlBin {
+    pub fn build(mut self, disp: isize) -> MlBin {
+        for i in 0 .. self.len {
+            self.mlbin[i + self.index] = ((unsafe { transmute::<isize, usize>(disp) } >> (i*8)) & 0xff) as u8;
+        }
+        self.mlbin
+    }
+}
+
 pub type MlBin = SVec<22, u8>;
 
 impl MlGen {
@@ -36,7 +52,16 @@ impl MlGen {
     }
 
     pub fn build(self) -> MlBin {
-        let mut ml_svec = SVec::new();
+        self.gen().build(self.disp.value().or_else(|| Some(0)).expect("unknown error"))
+    }
+
+    pub fn gen(self) -> DynMlBin {
+        let mut dyn_mlbin = DynMlBin {
+            mlbin: MlBin::new(),
+            index: 0,
+            len: 0,
+        };
+        let ml_svec = &mut dyn_mlbin.mlbin;
 
         if self.prefix_group3 {
             ml_svec.push(0x66);
@@ -77,9 +102,13 @@ impl MlGen {
         match self.disp {
             Disp::None => (),
             Disp::Disp8(field) => {
+                dyn_mlbin.index = ml_svec.len();
+                dyn_mlbin.len = 1;
                 ml_svec.push(unsafe { transmute::<i8, u8>(field) });
             }
             Disp::Disp32(field) => {
+                dyn_mlbin.index = ml_svec.len();
+                dyn_mlbin.len = 4;
                 for i in 0..4 {
                     ml_svec
                         .push(((unsafe { transmute::<i32, u32>(field) } >> (i * 8)) & 0xff) as u8);
@@ -112,7 +141,7 @@ impl MlGen {
             }
         }
 
-        ml_svec
+        dyn_mlbin
     }
 }
 
@@ -321,6 +350,16 @@ pub enum Disp {
     None,
     Disp8(i8),
     Disp32(i32),
+}
+
+impl Disp {
+    pub fn value(self) -> Option<isize> {
+        match self {
+            Self::None => None,
+            Self::Disp8(v) => Some(v as isize),
+            Self::Disp32(v) => Some(v as isize),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
