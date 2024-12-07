@@ -8,6 +8,7 @@ main:
     push rbp
     mov rbp, rsp
 
+    mov rdi, [rsp]
     mov rax, 0
     
     mov rsp, rbp

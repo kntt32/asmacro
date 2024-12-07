@@ -1,8 +1,11 @@
 use super::ml_gen::*;
 use super::*;
+use line_parser::{get_reg64_str, get_rm64_ref_str};
 use util::functions::stoi;
-use util::functions::{match_str, MatchStr};
+use util::functions::{get_inner_expr, match_str, MatchStr};
 use util::svec::SVec;
+
+mod line_parser;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Line<'a> {
@@ -151,26 +154,6 @@ enum OperandType {
 
 impl OperandType {
     fn is_match(self, expr: &str) -> bool {
-        fn is_reg64(expr: &str) -> bool {
-            for s in [
-                "rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rdi", "rsi", "r8", "r9", "r10", "r11",
-                "r12", "r13", "r14", "r15", "rip",
-            ] {
-                if expr == s {
-                    return true;
-                }
-            }
-            false
-        }
-
-        fn is_rm64(expr: &str) -> bool {
-            if is_reg64(expr) {
-                true
-            } else {
-                todo!()
-            }
-        }
-
         match self {
             OperandType::None => {
                 if expr.is_empty() {
@@ -180,33 +163,8 @@ impl OperandType {
                 }
             }
             OperandType::Imm64 => stoi(expr).is_some(),
-            OperandType::Reg64 => is_reg64(expr),
-            OperandType::Rm64 => {
-                let mut flag = false;
-                for matching in [
-                    &[
-                        MatchStr::Char('['),
-                        MatchStr::Custom(is_reg64),
-                        MatchStr::Char('+'),
-                        MatchStr::Custom(is_reg64),
-                        MatchStr::Char('*'),
-                        MatchStr::Number,
-                        MatchStr::Char(']'),
-                    ][..],
-                    &[
-                        MatchStr::Char('['),
-                        MatchStr::Custom(is_reg64),
-                        MatchStr::Char(']'),
-                    ][..],
-                    &[MatchStr::Custom(is_reg64)][..],
-                ] {
-                    if match_str(expr, matching).is_some() {
-                        flag = true;
-                    }
-                }
-                flag
-            }
-            _ => todo!(),
+            OperandType::Reg64 => get_reg64_str(expr).is_some(),
+            OperandType::Rm64 => get_reg64_str(expr).is_some() || get_rm64_ref_str(expr).is_some(),
         }
     }
 }

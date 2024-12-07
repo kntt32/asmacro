@@ -7,8 +7,8 @@
 /// assert_eq!(0b101101110101010, stoi("0b101101110101010").unwrap());
 /// assert_eq!(0o116672, stoi("0o116672").unwrap());
 /// ```
-pub fn stoi(s: &str) -> Option<usize> {
-    const stoi_func: [fn(&str) -> Option<usize>; 5] =
+pub fn stoi(s: &str) -> Option<isize> {
+    const stoi_func: [fn(&str) -> Option<isize>; 5] =
         [stoi_minus, stoi_octal, stoi_decimal, stoi_hex, stoi_binary];
 
     for f in stoi_func {
@@ -32,12 +32,12 @@ fn remove_prefix<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
     }
 }
 
-fn stoi_helper(s: &str, n: &[char]) -> Option<usize> {
-    let mut num: usize = 0;
+fn stoi_helper(s: &str, n: &[char]) -> Option<isize> {
+    let mut num: isize = 0;
 
     for c in s.chars().map(|c| c.to_ascii_lowercase()) {
         let mut match_flag = false;
-        if let Some(muln) = num.checked_mul(n.len()) {
+        if let Some(muln) = num.checked_mul(n.len() as isize) {
             num = muln;
         } else {
             return None;
@@ -45,7 +45,7 @@ fn stoi_helper(s: &str, n: &[char]) -> Option<usize> {
 
         for i in 0..n.len() {
             if c == n[i] {
-                num += i;
+                num += i as isize;
                 match_flag = true;
                 break;
             }
@@ -58,17 +58,17 @@ fn stoi_helper(s: &str, n: &[char]) -> Option<usize> {
     Some(num)
 }
 
-fn stoi_minus(s: &str) -> Option<usize> {
-    stoi(remove_prefix(s, "-")?.trim())
+fn stoi_minus(s: &str) -> Option<isize> {
+    stoi(remove_prefix(s, "-")?.trim()).map(|v| -v)
 }
 
 /// Binary to Integer
-pub fn stoi_binary(s: &str) -> Option<usize> {
+pub fn stoi_binary(s: &str) -> Option<isize> {
     stoi_helper(remove_prefix(s, "0b")?, &['0', '1'])
 }
 
 /// Octal to Integer
-pub fn stoi_octal(s: &str) -> Option<usize> {
+pub fn stoi_octal(s: &str) -> Option<isize> {
     stoi_helper(
         remove_prefix(s, "0o")?,
         &['0', '1', '2', '3', '4', '5', '6', '7'],
@@ -76,12 +76,12 @@ pub fn stoi_octal(s: &str) -> Option<usize> {
 }
 
 /// Decimal to Integer
-pub fn stoi_decimal(s: &str) -> Option<usize> {
+pub fn stoi_decimal(s: &str) -> Option<isize> {
     stoi_helper(s, &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
 }
 
 /// Hex to Integer
-pub fn stoi_hex(s: &str) -> Option<usize> {
+pub fn stoi_hex(s: &str) -> Option<isize> {
     stoi_helper(
         remove_prefix(s, "0x")?,
         &[
@@ -162,6 +162,33 @@ pub enum MatchStr<'a> {
     Custom(fn(&str) -> bool),
 }
 
+/// Get expression in brackets
+/// # Example
+/// ```
+/// use util::functions::get_inner_expr;
+///
+/// assert_eq!("Hello", get_inner_expr(" [Hello ]", ['[', ']']).unwrap());
+/// ```
+pub fn get_inner_expr(expr: &str, bracket: [char; 2]) -> Option<&str> {
+    let split_expr = expr.trim().split_at_checked(bracket[0].len_utf8())?;
+    if split_expr.0.chars().next()? != bracket[0] {
+        return None;
+    }
+
+    let start_removed_expr = split_expr.1;
+    if start_removed_expr.len() <= bracket[1].len_utf8() {
+        return None;
+    }
+    let split_expr = start_removed_expr
+        .trim()
+        .split_at_checked(start_removed_expr.len() - bracket[1].len_utf8())?;
+    if split_expr.1.chars().next()? != bracket[1] {
+        None
+    } else {
+        Some(split_expr.0.trim())
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -193,6 +220,15 @@ mod test {
                     MatchStr::Char(']'),
                 ],
             )
+        );
+    }
+
+    #[test]
+    pub fn get_inner_expr_test() {
+        assert_eq!("Hello", get_inner_expr(" [Hello ]", ['[', ']']).unwrap());
+        assert_eq!(
+            "Inner Expr",
+            get_inner_expr("[Inner Expr)", ['[', ')']).unwrap()
         );
     }
 }
