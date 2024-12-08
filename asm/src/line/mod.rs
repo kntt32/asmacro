@@ -6,6 +6,7 @@ use util::functions::{get_inner_expr, match_str, MatchStr};
 use util::svec::SVec;
 
 mod line_parser;
+mod line_checked;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Line<'a> {
