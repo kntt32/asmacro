@@ -27,8 +27,9 @@ pub struct DynMlBin {
 
 impl DynMlBin {
     pub fn build(mut self, disp: isize) -> MlBin {
-        for i in 0 .. self.len {
-            self.mlbin[i + self.index] = ((unsafe { transmute::<isize, usize>(disp) } >> (i*8)) & 0xff) as u8;
+        for i in 0..self.len {
+            self.mlbin[i + self.index] =
+                ((unsafe { transmute::<isize, usize>(disp) } >> (i * 8)) & 0xff) as u8;
         }
         self.mlbin
     }
@@ -52,7 +53,12 @@ impl MlGen {
     }
 
     pub fn build(self) -> MlBin {
-        self.gen().build(self.disp.value().or_else(|| Some(0)).expect("unknown error"))
+        self.gen().build(
+            self.disp
+                .value()
+                .or_else(|| Some(0))
+                .expect("unknown error"),
+        )
     }
 
     pub fn gen(self) -> DynMlBin {
