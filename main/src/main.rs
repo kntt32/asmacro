@@ -1,4 +1,5 @@
 use asm::parser::*;
+use asm::line::operators;
 use util::functions::*;
 
 fn main() {
@@ -18,6 +19,6 @@ main:
     );
 
     for i in parse {
-        println!("{:?}, {:?}", i, i.unwrap().1.get_opindex());
+        println!("{:?}", i);
     }
 }

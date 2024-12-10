@@ -6,37 +6,60 @@ use util::functions::{get_inner_expr, match_str, MatchStr};
 use util::svec::SVec;
 
 mod line_parser;
-mod line_checked;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Line<'a> {
+    label: Option<&'a str>,
+    ops: Option<(Operator, SVec<2, &'a str>)>,// (operator, operands)
+}
+
+impl<'a> Line<'a> {
+    
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct RowLine<'a> {
     label: Option<&'a str>,
     mnemonic: Option<&'a str>,
     operands: SVec<2, &'a str>,
 }
 
-impl<'a> Line<'a> {
+impl<'a> RowLine<'a> {
     pub fn new(
         label: Option<&'a str>,
         mnemonic: Option<&'a str>,
         operands: SVec<2, &'a str>,
     ) -> Self {
-        Line {
+        RowLine {
             label: label,
             mnemonic: mnemonic,
             operands: operands,
         }
     }
 
-    pub fn get_opindex(self) -> Option<usize> {
-        for i in 0..ops_list.len() {
+    pub fn to_line(&self, operators_list: &[Operator]) -> Option<Line<'a>> {
+        if self.mnemonic.is_some() {
+            Some(Line {
+            label: self.label,
+            ops: Some((operators_list[self.get_operation_index(operators)?], self.operands))
+            })
+        }else {
+            Some(Line {
+                label: self.label,
+                ops: None,
+            })
+        }
+    }
+
+    pub fn get_operation_index(self, operators_list: &[Operator]) -> Option<usize> {
+        for i in 0..operators_list.len() {
             if self.mnemonic.is_some()
-                && self.mnemonic? == ops_list[i].mnemonic
-                && ops_list[i].operands.len() == self.operands.len()
+                && self.mnemonic? == operators_list[i].mnemonic
+                && operators_list[i].operands.len() == self.operands.len()
             {
                 let mut flag = true;
-                for k in 0..ops_list[i].operands.len() {
-                    if !ops_list[i].operands[k].is_match(self.operands[k]) {
+                for k in 0..operators_list[i].operands.len() {
+                    if !operators_list[i].operands[k].is_match(self.operands[k]) {
                         flag = false;
                         break;
                     }
@@ -48,45 +71,17 @@ impl<'a> Line<'a> {
         }
         return None;
     }
-
-    pub fn encode(self) -> Result<EncodedLine<'a>, ()> {
-        if self.mnemonic == None {
-            Ok(EncodedLine {
-                label: self.label,
-                code: None,
-                len: 0,
-            })
-        } else {
-            for i in ops_list {
-                if let Ok(encoded_line) = self.encode_with_operator(*i) {
-                    return Ok(encoded_line);
-                }
-            }
-            Err(())
-        }
-    }
-
-    fn encode_with_operator(&self, op: Operator) -> Result<EncodedLine<'a>, ()> {
-        todo!();
-        Err(())
-    }
 }
 
-struct EncodedLine<'a> {
-    label: Option<&'a str>,
-    code: Option<MlBin>,
-    len: usize,
-}
-
-#[derive(Clone, Copy)]
-struct Operator {
+#[derive(Clone, Copy, Debug)]
+pub struct Operator {
     mnemonic: &'static str,
     opecode: SVec<3, u8>,
     operands: SVec<2, OperandType>,
     encode_rule: Rule,
 }
 
-static ops_list: &[Operator] = &[
+pub static operators: &[Operator] = &[
     Operator {
         mnemonic: "mov",
         opecode: SVec::value([0xb8, 0, 0], 1),
@@ -144,7 +139,7 @@ static ops_list: &[Operator] = &[
     },
 ];
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 enum OperandType {
     #[default]
     None,
@@ -170,7 +165,7 @@ impl OperandType {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct Rule {
     pub rex: RexRule,
     pub modrm: ModRmRule,
@@ -178,7 +173,7 @@ struct Rule {
     pub add_reg: AddRegRule,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 enum RexRule {
     #[default]
     None,
@@ -186,14 +181,14 @@ enum RexRule {
     RexW,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum ModRmRule {
     None,
     R,
     Dight(u8),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum ImmRule {
     None,
     Ib,
@@ -202,7 +197,7 @@ pub enum ImmRule {
     Io,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum AddRegRule {
     None,
     Rb,
