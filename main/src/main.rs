@@ -1,5 +1,5 @@
-use asm::parser::*;
 use asm::line::operators;
+use asm::parser::*;
 use util::functions::*;
 
 fn main() {

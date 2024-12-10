@@ -1,4 +1,4 @@
-use super::line::{RowLine, Line, operators};
+use super::line::{operators, Line, RowLine};
 use std::iter::Iterator;
 use std::str::Lines;
 use util::svec::SVec;
@@ -100,7 +100,7 @@ impl<'a> Iterator for Parser<'a> {
         if label.is_none() && mnemonic.is_none() {
             if operands.len() != 0 {
                 return Some(Err(self.line));
-            }else {
+            } else {
                 return self.next();
             }
         }

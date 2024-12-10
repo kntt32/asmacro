@@ -10,12 +10,10 @@ mod line_parser;
 #[derive(Clone, Copy, Debug)]
 pub struct Line<'a> {
     label: Option<&'a str>,
-    ops: Option<(Operator, SVec<2, &'a str>)>,// (operator, operands)
+    ops: Option<(Operator, SVec<2, &'a str>)>, // (operator, operands)
 }
 
-impl<'a> Line<'a> {
-    
-}
+impl<'a> Line<'a> {}
 
 #[derive(Clone, Copy, Debug)]
 pub struct RowLine<'a> {
@@ -40,10 +38,13 @@ impl<'a> RowLine<'a> {
     pub fn to_line(&self, operators_list: &[Operator]) -> Option<Line<'a>> {
         if self.mnemonic.is_some() {
             Some(Line {
-            label: self.label,
-            ops: Some((operators_list[self.get_operation_index(operators)?], self.operands))
+                label: self.label,
+                ops: Some((
+                    operators_list[self.get_operation_index(operators)?],
+                    self.operands,
+                )),
             })
-        }else {
+        } else {
             Some(Line {
                 label: self.label,
                 ops: None,
