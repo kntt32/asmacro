@@ -1,5 +1,7 @@
 use super::ml_gen::*;
 use super::*;
+use crate::ml_gen::raw_encoder::{ModRmMode, RexMode};
+use crate::registers::Register;
 use line_parser::{get_reg64_str, get_rm64_ref_str};
 use util::functions::stoi;
 use util::functions::{get_inner_expr, match_str, MatchStr};
@@ -13,7 +15,22 @@ pub struct Line<'a> {
     ops: Option<(Operator, SVec<2, &'a str>)>, // (operator, operands)
 }
 
-impl<'a> Line<'a> {}
+impl<'a> Line<'a> {
+    /*
+    pub fn opecode(&self) -> Option<SVec<3, u8>> {
+        Some(self.ops?.0.encoding_rule.opecode)
+    }
+
+    pub fn rex_mode(&self) -> Option<RexMode> {
+        Some(self.ops?.0.encoding_rule.rex)
+    }
+
+    pub fn modrm_mode(&self) -> Option<ModRmMode> {
+        Some(
+            match self.ops?.0.encoding_rule.modrm_mode
+        )
+    }*/
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct RowLine<'a> {
@@ -77,17 +94,16 @@ impl<'a> RowLine<'a> {
 #[derive(Clone, Copy, Debug)]
 pub struct Operator {
     mnemonic: &'static str,
-    opecode: SVec<3, u8>,
     operands: SVec<2, OperandType>,
-    encode_rule: Rule,
+    encoding_rule: Rule,
 }
 
 pub static operators: &[Operator] = &[
     Operator {
         mnemonic: "mov",
-        opecode: SVec::value([0xb8, 0, 0], 1),
         operands: SVec::value([OperandType::Reg64, OperandType::Imm64], 2),
-        encode_rule: Rule {
+        encoding_rule: Rule {
+            opecode: SVec::value([0xb8, 0, 0], 1),
             rex: RexRule::RexW,
             modrm: ModRmRule::None,
             imm: ImmRule::Id,
@@ -96,9 +112,9 @@ pub static operators: &[Operator] = &[
     },
     Operator {
         mnemonic: "mov",
-        opecode: SVec::value([0x8b, 0, 0], 1),
         operands: SVec::value([OperandType::Reg64, OperandType::Rm64], 2),
-        encode_rule: Rule {
+        encoding_rule: Rule {
+            opecode: SVec::value([0x8b, 0, 0], 1),
             rex: RexRule::RexW,
             modrm: ModRmRule::R,
             imm: ImmRule::None,
@@ -107,9 +123,9 @@ pub static operators: &[Operator] = &[
     }, //50+rd PUSH r64
     Operator {
         mnemonic: "push",
-        opecode: SVec::value([0x50, 0, 0], 1),
         operands: SVec::value([OperandType::Reg64, OperandType::None], 1),
-        encode_rule: Rule {
+        encoding_rule: Rule {
+            opecode: SVec::value([0x50, 0, 0], 1),
             rex: RexRule::None,
             modrm: ModRmRule::None,
             imm: ImmRule::None,
@@ -118,9 +134,9 @@ pub static operators: &[Operator] = &[
     }, //REX.W + 58+ rd POP r64
     Operator {
         mnemonic: "pop",
-        opecode: SVec::value([0x58, 0, 0], 1),
         operands: SVec::value([OperandType::Reg64, OperandType::None], 1),
-        encode_rule: Rule {
+        encoding_rule: Rule {
+            opecode: SVec::value([0x58, 0, 0], 1),
             rex: RexRule::RexW,
             modrm: ModRmRule::None,
             imm: ImmRule::None,
@@ -129,9 +145,9 @@ pub static operators: &[Operator] = &[
     }, //C3 RET
     Operator {
         mnemonic: "ret",
-        opecode: SVec::value([0xc3, 0, 0], 1),
         operands: SVec::value([OperandType::None, OperandType::None], 0),
-        encode_rule: Rule {
+        encoding_rule: Rule {
+            opecode: SVec::value([0xc3, 0, 0], 1),
             rex: RexRule::None,
             modrm: ModRmRule::None,
             imm: ImmRule::None,
@@ -168,19 +184,14 @@ impl OperandType {
 
 #[derive(Clone, Copy, Debug)]
 struct Rule {
+    pub opecode: SVec<3, u8>,
     pub rex: RexRule,
     pub modrm: ModRmRule,
     pub imm: ImmRule,
     pub add_reg: AddRegRule,
 }
 
-#[derive(Clone, Copy, Default, Debug)]
-enum RexRule {
-    #[default]
-    None,
-    Rex,
-    RexW,
-}
+pub type RexRule = RexMode;
 
 #[derive(Clone, Copy, Debug)]
 pub enum ModRmRule {

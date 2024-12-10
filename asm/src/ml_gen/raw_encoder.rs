@@ -253,7 +253,9 @@ impl MlGen {
     }
 }
 
+#[derive(Clone, Copy, Default, Debug)]
 pub enum RexMode {
+    #[default]
     None,
     Rex,
     RexW,
