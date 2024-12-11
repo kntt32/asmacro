@@ -16,6 +16,50 @@ pub struct Line<'a> {
 }
 
 impl<'a> Line<'a> {
+    pub fn opecode(&self) -> Option<SVec<3, u8>> {
+        Some(self.ops?.0.encoding_rule.opecode)
+    }
+
+    pub fn rex(&self) -> Option<RexRule> {
+        Some(self.ops?.0.encoding_rule.rex)
+    }
+
+    pub fn modrm_reg(&self) -> Option<Register> {
+        todo!()
+    }
+
+    pub fn modrm_rm_scale(&self) -> Option<u8> {
+        todo!()
+    }
+
+    pub fn imm(&self) -> Option<(isize, ImmRule)> {
+        let imm_number: isize = if self.ops?.0.operands[0] == OperandType::Imm {
+            stoi(self.ops?.1[0])?
+        } else if self.ops?.0.operands[1] == OperandType::Imm {
+            stoi(self.ops?.1[1])?
+        } else {
+            panic!("internal err")
+        };
+        Some((imm_number, self.ops?.0.encoding_rule.imm))
+    }
+
+    pub fn add_reg(&self) -> Option<Register> {
+        if self.ops?.0.encoding_rule.add_reg == AddRegRule::None {
+            None
+        } else {
+            let Ok(register) = (if self.ops?.0.operands[0] == OperandType::Reg {
+                self.ops?.1[0].parse()
+            } else if self.ops?.0.operands[1] == OperandType::Reg {
+                self.ops?.1[1].parse()
+            } else {
+                panic!("internal err")
+            }) else {
+                return None;
+            };
+            Some(register)
+        }
+    }
+
     /*
     pub fn opecode(&self) -> Option<SVec<3, u8>> {
         Some(self.ops?.0.encoding_rule.opecode)
@@ -32,7 +76,7 @@ impl<'a> Line<'a> {
     }*/
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RowLine<'a> {
     label: Option<&'a str>,
     mnemonic: Option<&'a str>,
@@ -91,7 +135,7 @@ impl<'a> RowLine<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Operator {
     mnemonic: &'static str,
     operands: SVec<2, OperandType>,
@@ -101,7 +145,7 @@ pub struct Operator {
 pub static operators: &[Operator] = &[
     Operator {
         mnemonic: "mov",
-        operands: SVec::value([OperandType::Reg64, OperandType::Imm64], 2),
+        operands: SVec::value([OperandType::Reg, OperandType::Imm], 2),
         encoding_rule: Rule {
             opecode: SVec::value([0xb8, 0, 0], 1),
             rex: RexRule::RexW,
@@ -112,7 +156,7 @@ pub static operators: &[Operator] = &[
     },
     Operator {
         mnemonic: "mov",
-        operands: SVec::value([OperandType::Reg64, OperandType::Rm64], 2),
+        operands: SVec::value([OperandType::Reg, OperandType::Rm], 2),
         encoding_rule: Rule {
             opecode: SVec::value([0x8b, 0, 0], 1),
             rex: RexRule::RexW,
@@ -123,7 +167,7 @@ pub static operators: &[Operator] = &[
     }, //50+rd PUSH r64
     Operator {
         mnemonic: "push",
-        operands: SVec::value([OperandType::Reg64, OperandType::None], 1),
+        operands: SVec::value([OperandType::Reg, OperandType::None], 1),
         encoding_rule: Rule {
             opecode: SVec::value([0x50, 0, 0], 1),
             rex: RexRule::None,
@@ -134,7 +178,7 @@ pub static operators: &[Operator] = &[
     }, //REX.W + 58+ rd POP r64
     Operator {
         mnemonic: "pop",
-        operands: SVec::value([OperandType::Reg64, OperandType::None], 1),
+        operands: SVec::value([OperandType::Reg, OperandType::None], 1),
         encoding_rule: Rule {
             opecode: SVec::value([0x58, 0, 0], 1),
             rex: RexRule::RexW,
@@ -156,13 +200,13 @@ pub static operators: &[Operator] = &[
     },
 ];
 
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
 enum OperandType {
     #[default]
     None,
-    Imm64,
-    Reg64,
-    Rm64,
+    Imm,
+    Reg,
+    Rm,
 }
 
 impl OperandType {
@@ -175,14 +219,14 @@ impl OperandType {
                     false
                 }
             }
-            OperandType::Imm64 => stoi(expr).is_some(),
-            OperandType::Reg64 => get_reg64_str(expr).is_some(),
-            OperandType::Rm64 => get_reg64_str(expr).is_some() || get_rm64_ref_str(expr).is_some(),
+            OperandType::Imm => stoi(expr).is_some(),
+            OperandType::Reg => get_reg64_str(expr).is_some(),
+            OperandType::Rm => get_reg64_str(expr).is_some() || get_rm64_ref_str(expr).is_some(),
         }
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct Rule {
     pub opecode: SVec<3, u8>,
     pub rex: RexRule,
@@ -193,14 +237,14 @@ struct Rule {
 
 pub type RexRule = RexMode;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ModRmRule {
     None,
     R,
     Dight(u8),
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ImmRule {
     None,
     Ib,
@@ -209,7 +253,7 @@ pub enum ImmRule {
     Io,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AddRegRule {
     None,
     Rb,

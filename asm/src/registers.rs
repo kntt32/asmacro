@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Register {
     Rax,
@@ -159,5 +161,32 @@ impl Register {
         } else {
             Err(())
         }
+    }
+}
+
+impl FromStr for Register {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "rax" => Self::Rax,
+            "rcx" => Self::Rcx,
+            "rdx" => Self::Rdx,
+            "rbp" => Self::Rbp,
+            "rsp" => Self::Rsp,
+            "rbp" => Self::Rbp,
+            "rsi" => Self::Rsi,
+            "rdi" => Self::Rdi,
+            "r8" => Self::R8,
+            "r9" => Self::R9,
+            "r10" => Self::R10,
+            "r11" => Self::R11,
+            "r12" => Self::R12,
+            "r13" => Self::R13,
+            "r14" => Self::R14,
+            "r15" => Self::R15,
+            "rip" => Self::Rip,
+            _ => Err(())?,
+        })
     }
 }
