@@ -12,68 +12,84 @@ mod line_parser;
 #[derive(Clone, Copy, Debug)]
 pub struct Line<'a> {
     label: Option<&'a str>,
-    ops: Option<(Operator, SVec<2, &'a str>)>, // (operator, operands)
+    operation: Option<(Operator, SVec<2, &'a str>)>, // (operator, operands)
 }
 
 impl<'a> Line<'a> {
     pub fn opecode(&self) -> Option<SVec<3, u8>> {
-        Some(self.ops?.0.encoding_rule.opecode)
+        Some(self.operation?.0.encoding_rule.opecode)
     }
 
     pub fn rex(&self) -> Option<RexRule> {
-        Some(self.ops?.0.encoding_rule.rex)
+        Some(self.operation?.0.encoding_rule.rex)
     }
 
-    pub fn modrm_reg(&self) -> Option<Register> {
-        todo!()
-    }
-
-    pub fn modrm_rm_scale(&self) -> Option<u8> {
-        todo!()
-    }
-
-    pub fn imm(&self) -> Option<(isize, ImmRule)> {
-        let imm_number: isize = if self.ops?.0.operands[0] == OperandType::Imm {
-            stoi(self.ops?.1[0])?
-        } else if self.ops?.0.operands[1] == OperandType::Imm {
-            stoi(self.ops?.1[1])?
+    fn get_operand(&self, operand_type: OperandType) -> Option<&str> {
+        if self.operation?.0.operand_types[0] == operand_type {
+            Some(self.operation?.1[0])
+        } else if self.operation?.0.operand_types[1] == operand_type {
+            Some(self.operation?.1[1])
         } else {
-            panic!("internal err")
-        };
-        Some((imm_number, self.ops?.0.encoding_rule.imm))
+            None
+        }
     }
 
     pub fn add_reg(&self) -> Option<Register> {
-        if self.ops?.0.encoding_rule.add_reg == AddRegRule::None {
+        if self.operation?.0.encoding_rule.add_reg == AddRegRule::None {
             None
         } else {
-            let Ok(register) = (if self.ops?.0.operands[0] == OperandType::Reg {
-                self.ops?.1[0].parse()
-            } else if self.ops?.0.operands[1] == OperandType::Reg {
-                self.ops?.1[1].parse()
-            } else {
-                panic!("internal err")
-            }) else {
+            let Ok(register) = self
+                .get_operand(OperandType::Reg)
+                .expect("internal error")
+                .parse()
+            else {
                 return None;
             };
             Some(register)
         }
     }
 
-    /*
-    pub fn opecode(&self) -> Option<SVec<3, u8>> {
-        Some(self.ops?.0.encoding_rule.opecode)
+    pub fn modrm_reg(&self) -> Option<Register> {
+        if self.operation?.0.encoding_rule.modrm != ModRmRule::R {
+            None
+        } else {
+            let Ok(reg): Result<Register, ()> = self.get_operand(OperandType::Reg)?.parse() else {
+                return None;
+            };
+            Some(reg)
+        }
     }
 
-    pub fn rex_mode(&self) -> Option<RexMode> {
-        Some(self.ops?.0.encoding_rule.rex)
+    pub fn modrm_rm_reg(&self) -> Option<Register> {
+        let Ok(reg): Result<Register, ()> = self.get_operand(OperandType::Rm)?.parse() else {
+            return None;
+        };
+        Some(reg)
     }
 
-    pub fn modrm_mode(&self) -> Option<ModRmMode> {
-        Some(
-            match self.ops?.0.encoding_rule.modrm_mode
-        )
-    }*/
+    fn modrm_rm_ref_split(&self) -> Option<(isize, Register, Option<(u8, Register)>)> {
+        // Option<(disp, base, Option<(scale, index)>)>
+
+        todo!()
+    }
+
+    pub fn modrm_rm_ref_reg(&self) -> Option<Register> {
+        todo!()
+    }
+
+    pub fn modrm_rm_ref_disp(&self) -> Option<isize> {
+        todo!()
+    }
+
+    pub fn modrm_rm_ref_scale(&self) -> Option<u8> {
+        todo!()
+    }
+
+    pub fn imm(&self) -> Option<(isize, ImmRule)> {
+        let imm_number: isize = stoi(self.get_operand(OperandType::Imm).expect("internal error"))?;
+
+        Some((imm_number, self.operation?.0.encoding_rule.imm))
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -100,7 +116,7 @@ impl<'a> RowLine<'a> {
         if self.mnemonic.is_some() {
             Some(Line {
                 label: self.label,
-                ops: Some((
+                operation: Some((
                     operators_list[self.get_operation_index(operators)?],
                     self.operands,
                 )),
@@ -108,7 +124,7 @@ impl<'a> RowLine<'a> {
         } else {
             Some(Line {
                 label: self.label,
-                ops: None,
+                operation: None,
             })
         }
     }
@@ -117,11 +133,11 @@ impl<'a> RowLine<'a> {
         for i in 0..operators_list.len() {
             if self.mnemonic.is_some()
                 && self.mnemonic? == operators_list[i].mnemonic
-                && operators_list[i].operands.len() == self.operands.len()
+                && operators_list[i].operand_types.len() == self.operands.len()
             {
                 let mut flag = true;
-                for k in 0..operators_list[i].operands.len() {
-                    if !operators_list[i].operands[k].is_match(self.operands[k]) {
+                for k in 0..operators_list[i].operand_types.len() {
+                    if !operators_list[i].operand_types[k].is_match(self.operands[k]) {
                         flag = false;
                         break;
                     }
@@ -138,14 +154,14 @@ impl<'a> RowLine<'a> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Operator {
     mnemonic: &'static str,
-    operands: SVec<2, OperandType>,
+    operand_types: SVec<2, OperandType>,
     encoding_rule: Rule,
 }
 
 pub static operators: &[Operator] = &[
     Operator {
         mnemonic: "mov",
-        operands: SVec::value([OperandType::Reg, OperandType::Imm], 2),
+        operand_types: SVec::value([OperandType::Reg, OperandType::Imm], 2),
         encoding_rule: Rule {
             opecode: SVec::value([0xb8, 0, 0], 1),
             rex: RexRule::RexW,
@@ -156,7 +172,7 @@ pub static operators: &[Operator] = &[
     },
     Operator {
         mnemonic: "mov",
-        operands: SVec::value([OperandType::Reg, OperandType::Rm], 2),
+        operand_types: SVec::value([OperandType::Reg, OperandType::Rm], 2),
         encoding_rule: Rule {
             opecode: SVec::value([0x8b, 0, 0], 1),
             rex: RexRule::RexW,
@@ -167,7 +183,7 @@ pub static operators: &[Operator] = &[
     }, //50+rd PUSH r64
     Operator {
         mnemonic: "push",
-        operands: SVec::value([OperandType::Reg, OperandType::None], 1),
+        operand_types: SVec::value([OperandType::Reg, OperandType::None], 1),
         encoding_rule: Rule {
             opecode: SVec::value([0x50, 0, 0], 1),
             rex: RexRule::None,
@@ -178,7 +194,7 @@ pub static operators: &[Operator] = &[
     }, //REX.W + 58+ rd POP r64
     Operator {
         mnemonic: "pop",
-        operands: SVec::value([OperandType::Reg, OperandType::None], 1),
+        operand_types: SVec::value([OperandType::Reg, OperandType::None], 1),
         encoding_rule: Rule {
             opecode: SVec::value([0x58, 0, 0], 1),
             rex: RexRule::RexW,
@@ -189,7 +205,7 @@ pub static operators: &[Operator] = &[
     }, //C3 RET
     Operator {
         mnemonic: "ret",
-        operands: SVec::value([OperandType::None, OperandType::None], 0),
+        operand_types: SVec::value([OperandType::None, OperandType::None], 0),
         encoding_rule: Rule {
             opecode: SVec::value([0xc3, 0, 0], 1),
             rex: RexRule::None,
