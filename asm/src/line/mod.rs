@@ -25,9 +25,13 @@ impl<'a> Line<'a> {
     }
 
     fn get_operand(&self, operand_type: OperandType) -> Option<&str> {
-        if self.operation?.0.operand_types[0] == operand_type {
+        if 1 <= self.operation?.0.operand_types.len()
+            && self.operation?.0.operand_types[0] == operand_type
+        {
             Some(self.operation?.1[0])
-        } else if self.operation?.0.operand_types[1] == operand_type {
+        } else if 2 <= self.operation?.0.operand_types.len()
+            && self.operation?.0.operand_types[1] == operand_type
+        {
             Some(self.operation?.1[1])
         } else {
             None
@@ -67,28 +71,34 @@ impl<'a> Line<'a> {
         Some(reg)
     }
 
-    fn modrm_rm_ref_split(&self) -> Option<(isize, Register, Option<(u8, Register)>)> {
-        // Option<(disp, base, Option<(scale, index)>)>
-
-        todo!()
-    }
-
-    pub fn modrm_rm_ref_reg(&self) -> Option<Register> {
-        todo!()
-    }
-
     pub fn modrm_rm_ref_disp(&self) -> Option<isize> {
-        todo!()
+        let operand = self.get_operand(OperandType::Rm)?;
+        Some(get_rm64_ref_str(operand)?.0)
+    }
+
+    pub fn modrm_rm_ref_base(&self) -> Option<Register> {
+        let operand = self.get_operand(OperandType::Rm)?;
+        Some(get_rm64_ref_str(operand)?.1)
+    }
+
+    pub fn modrm_rm_ref_index(&self) -> Option<Register> {
+        let operand = self.get_operand(OperandType::Rm)?;
+        Some(get_rm64_ref_str(operand)?.2?.0)
     }
 
     pub fn modrm_rm_ref_scale(&self) -> Option<u8> {
-        todo!()
+        let operand = self.get_operand(OperandType::Rm)?;
+        Some(get_rm64_ref_str(operand)?.2?.1)
     }
 
     pub fn imm(&self) -> Option<(isize, ImmRule)> {
         let imm_number: isize = stoi(self.get_operand(OperandType::Imm).expect("internal error"))?;
 
         Some((imm_number, self.operation?.0.encoding_rule.imm))
+    }
+
+    pub fn rel(&self) -> Option<(isize)> {
+        todo!()
     }
 }
 
@@ -223,6 +233,7 @@ enum OperandType {
     Imm,
     Reg,
     Rm,
+    // Rel,
 }
 
 impl OperandType {

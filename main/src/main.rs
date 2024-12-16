@@ -9,8 +9,6 @@ main:
     push rbp
     mov rbp, rsp
 
-    push 1
-    push 2
     mov rdi, -1[rsp]
     mov rax, 0
     
@@ -20,7 +18,7 @@ main:
     ",
     );
 
-    for i in parse {
-        println!("{:?}", i);
+    for line in parse {
+        println!("{:?}", line.unwrap().1.modrm_rm_ref_base());
     }
 }
