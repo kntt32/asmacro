@@ -2,7 +2,7 @@ use super::ml_gen::*;
 use super::*;
 use crate::ml_gen::raw_encoder::{ModRmMode, RexMode};
 use crate::registers::Register;
-use line_parser::{get_reg64_str, get_rm64_ref_str};
+use line_parser::{get_reg64, get_rm64_ref};
 use util::functions::stoi;
 use util::functions::{get_inner_expr, match_str, MatchStr};
 use util::svec::SVec;
@@ -73,22 +73,22 @@ impl<'a> Line<'a> {
 
     pub fn modrm_rm_ref_disp(&self) -> Option<isize> {
         let operand = self.get_operand(OperandType::Rm)?;
-        Some(get_rm64_ref_str(operand)?.0)
+        Some(get_rm64_ref(operand)?.0)
     }
 
     pub fn modrm_rm_ref_base(&self) -> Option<Register> {
         let operand = self.get_operand(OperandType::Rm)?;
-        Some(get_rm64_ref_str(operand)?.1)
+        Some(get_rm64_ref(operand)?.1)
     }
 
     pub fn modrm_rm_ref_index(&self) -> Option<Register> {
         let operand = self.get_operand(OperandType::Rm)?;
-        Some(get_rm64_ref_str(operand)?.2?.0)
+        Some(get_rm64_ref(operand)?.2?.0)
     }
 
     pub fn modrm_rm_ref_scale(&self) -> Option<u8> {
         let operand = self.get_operand(OperandType::Rm)?;
-        Some(get_rm64_ref_str(operand)?.2?.1)
+        Some(get_rm64_ref(operand)?.2?.1)
     }
 
     pub fn imm(&self) -> Option<(isize, ImmRule)> {
@@ -233,7 +233,7 @@ enum OperandType {
     Imm,
     Reg,
     Rm,
-    // Rel,
+    Rel,
 }
 
 impl OperandType {
@@ -247,8 +247,9 @@ impl OperandType {
                 }
             }
             OperandType::Imm => stoi(expr).is_some(),
-            OperandType::Reg => get_reg64_str(expr).is_some(),
-            OperandType::Rm => get_reg64_str(expr).is_some() || get_rm64_ref_str(expr).is_some(),
+            OperandType::Reg => get_reg64(expr).is_some(),
+            OperandType::Rm => get_reg64(expr).is_some() || get_rm64_ref(expr).is_some(),
+            OperandType::Rel => stoi(expr).is_some(),
         }
     }
 }

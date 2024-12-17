@@ -1,19 +1,19 @@
 use super::*;
 
-pub fn get_reg64_str(expr: &str) -> Option<&str> {
-    let trimed_expr = expr.trim();
-    for s in [
-        "rax", "rcx", "rdx", "rbx", "rsp", "rbp", "rdi", "rsi", "r8", "r9", "r10", "r11", "r12",
-        "r13", "r14", "r15", "rip",
-    ] {
-        if trimed_expr == s {
-            return Some(trimed_expr);
+pub fn get_reg64(mut expr: &str) -> Option<Register> {
+    let expr = expr.trim();
+    if let Ok(r) = expr.parse::<Register>() {
+        if r.is_64bit() {
+            Some(r)
+        }else {
+            None
         }
+    }else {
+        None
     }
-    None
 }
 
-pub fn get_rm64_ref_str(expr: &str) -> Option<(isize, Register, Option<(Register, u8)>)> {
+pub fn get_rm64_ref(expr: &str) -> Option<(isize, Register, Option<(Register, u8)>)> {
     // disp[base], disp[base, index] or disp[base, index, scale]
     // Option<(disp, base, Option<(index, scale)>)>
 
