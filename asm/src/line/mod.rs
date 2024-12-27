@@ -1,11 +1,12 @@
 use super::ml_gen::*;
 use super::*;
-use crate::ml_gen::raw_encoder::{ModRmMode, RexMode};
+use crate::ml_gen::raw_encoder::{ModRmMode, Rm, RexMode, ImmMode, AddRegMode};
 use crate::registers::Register;
 use line_parser::{get_reg64, get_rm64_ref};
 use util::functions::stoi;
 use util::functions::{get_inner_expr, match_str, MatchStr};
 use util::svec::SVec;
+use std::mem::transmute;
 
 mod line_parser;
 
@@ -16,12 +17,58 @@ pub struct Line<'a> {
 }
 
 impl<'a> Line<'a> {
-    pub fn opecode(&self) -> Option<SVec<3, u8>> {
-        Some(self.operation?.0.encoding_rule.opecode)
+    pub fn opecode(&self) -> SVec<3, u8> {
+        self.operation.expect("invalid operation").0.encoding_rule.opecode
     }
 
-    pub fn rex(&self) -> Option<RexRule> {
-        Some(self.operation?.0.encoding_rule.rex)
+    pub fn rex(&self) -> RexMode {
+        self.operation.expect("invalid input").0.encoding_rule.rex
+    }
+
+    pub fn modrm(&self) -> ModRmMode {
+        match self.operation.expect("invalid input").0.encoding_rule.modrm {
+            ModRmRule::None => ModRmMode::None,
+            ModRmRule::R => ModRmMode::R(self.modrm_reg(), self.modrm_to_rm()),
+            ModRmRule::Dight(d) => ModRmMode::Dight(d, self.modrm_to_rm()),
+        }
+    }
+
+    pub fn imm(&self) -> ImmMode {
+        let value = stoi(self.get_operand(OperandType::Imm).expect("invalid input")).expect("invalid operation");
+        let transmuted_value = unsafe { transmute::<isize, usize>(value) };
+
+        match self.operation.expect("invalid input").0.encoding_rule.imm {
+            ImmRule::None => ImmMode::None,
+            ImmRule::Ib => ImmMode::Ib(transmuted_value as u8),
+            ImmRule::Iw => ImmMode::Iw(transmuted_value as u16),
+            ImmRule::Id => ImmMode::Id(transmuted_value as u32),
+            ImmRule::Io => ImmMode::Io(transmuted_value as u64),
+        }
+    }
+
+    pub fn add_reg(&self) -> AddRegMode {
+        let reg: Register = self.get_operand(OperandType::Reg).expect("invalid operation").parse().expect("invalid operation");
+
+        match self.operation.expect("invalid input").0.encoding_rule.add_reg{
+            AddRegRule::None => AddRegMode::None,
+            AddRegRule::Rb => if reg.is_8bit() { AddRegMode::Rb(reg) } else { panic!("invalid input") },
+            AddRegRule::Rw => if reg.is_16bit() { AddRegMode::Rw(reg) } else { panic!("invalid input") },
+            AddRegRule::Rd => if reg.is_32bit() { AddRegMode::Rd(reg) } else { panic!("invalid input") },
+            AddRegRule::Ro => if reg.is_64bit() { AddRegMode::Ro(reg) } else { panic!("invalid input") },
+        }
+    }
+
+    fn modrm_to_rm(&self) -> Rm {
+        if let Some(r) = self.modrm_rm_reg() {
+            Rm::Reg(r)
+        }else {
+            Rm::Ref {
+                scale: self.modrm_rm_ref_scale().expect("invalid operation"),
+                index: self.modrm_rm_ref_index().expect("invalid operation"),
+                base: self.modrm_rm_ref_base().expect("invalid operation"),
+                disp: self.modrm_rm_ref_disp().expect("invalid operation"),
+            }
+        }
     }
 
     fn get_operand(&self, operand_type: OperandType) -> Option<&str> {
@@ -37,7 +84,7 @@ impl<'a> Line<'a> {
             None
         }
     }
-
+/*
     pub fn add_reg(&self) -> Option<Register> {
         if self.operation?.0.encoding_rule.add_reg == AddRegRule::None {
             None
@@ -52,15 +99,15 @@ impl<'a> Line<'a> {
             Some(register)
         }
     }
-
-    pub fn modrm_reg(&self) -> Option<Register> {
-        if self.operation?.0.encoding_rule.modrm != ModRmRule::R {
-            None
+*/
+    pub fn modrm_reg(&self) -> Register {
+        if self.operation.expect("invalid operation").0.encoding_rule.modrm != ModRmRule::R {
+            panic!("invalid operation")
         } else {
-            let Ok(reg): Result<Register, ()> = self.get_operand(OperandType::Reg)?.parse() else {
-                return None;
+            let Ok(reg): Result<Register, ()> = self.get_operand(OperandType::Reg).expect("invalid operation").parse() else {
+                panic!("invalid operation")
             };
-            Some(reg)
+            reg
         }
     }
 
@@ -71,9 +118,9 @@ impl<'a> Line<'a> {
         Some(reg)
     }
 
-    pub fn modrm_rm_ref_disp(&self) -> Option<isize> {
+    pub fn modrm_rm_ref_disp(&self) -> Option<i32> {
         let operand = self.get_operand(OperandType::Rm)?;
-        Some(get_rm64_ref(operand)?.0)
+        Some(get_rm64_ref(operand)?.0 as i32)
     }
 
     pub fn modrm_rm_ref_base(&self) -> Option<Register> {
@@ -90,7 +137,7 @@ impl<'a> Line<'a> {
         let operand = self.get_operand(OperandType::Rm)?;
         Some(get_rm64_ref(operand)?.2?.1)
     }
-
+/*
     pub fn imm(&self) -> Option<(isize, ImmRule)> {
         let imm_number: isize = stoi(self.get_operand(OperandType::Imm).expect("internal error"))?;
 
@@ -99,7 +146,7 @@ impl<'a> Line<'a> {
 
     pub fn rel(&self) -> Option<(isize)> {
         todo!()
-    }
+    }*/
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

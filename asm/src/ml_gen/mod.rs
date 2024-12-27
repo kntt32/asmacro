@@ -125,24 +125,24 @@ impl MlGen {
         match self.imm {
             Imm::None => (),
             Imm::Imm8(field) => {
-                ml_svec.push(unsafe { transmute::<i8, u8>(field) });
+                ml_svec.push(field);
             }
             Imm::Imm16(field) => {
                 for i in 0..2 {
                     ml_svec
-                        .push(((unsafe { transmute::<i16, u16>(field) } >> (i * 8)) & 0xff) as u8);
+                        .push(((field >> (i * 8)) & 0xff) as u8);
                 }
             }
             Imm::Imm32(field) => {
                 for i in 0..4 {
                     ml_svec
-                        .push(((unsafe { transmute::<i32, u32>(field) } >> (i * 8)) & 0xff) as u8);
+                        .push(((field >> (i * 8)) & 0xff) as u8);
                 }
             }
             Imm::Imm64(field) => {
                 for i in 0..8 {
                     ml_svec
-                        .push(((unsafe { transmute::<i64, u64>(field) } >> (i * 8)) & 0xff) as u8);
+                        .push(((field >> (i * 8)) & 0xff) as u8);
                 }
             }
         }
@@ -371,8 +371,8 @@ impl Disp {
 #[derive(Clone, Copy, Debug)]
 pub enum Imm {
     None,
-    Imm8(i8),
-    Imm16(i16),
-    Imm32(i32),
-    Imm64(i64),
+    Imm8(u8),
+    Imm16(u16),
+    Imm32(u32),
+    Imm64(u64),
 }

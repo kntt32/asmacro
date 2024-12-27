@@ -269,10 +269,10 @@ pub enum ModRmMode {
 
 pub enum ImmMode {
     None,
-    Ib(i8),
-    Iw(i16),
-    Id(i32),
-    Io(i64),
+    Ib(u8),
+    Iw(u16),
+    Id(u32),
+    Io(u64),
 }
 
 #[derive(PartialEq)]
