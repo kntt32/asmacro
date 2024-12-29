@@ -1,6 +1,6 @@
 use super::ml_gen::*;
 use super::*;
-use crate::ml_gen::raw_encoder::{ModRmMode, Rm, RexMode, ImmMode, AddRegMode};
+use crate::ml_gen::raw_encoder::{ModRmMode, Rm, RexMode, ImmMode, AddRegMode, RelMode};
 use crate::registers::Register;
 use line_parser::{get_reg64, get_rm64_ref};
 use util::functions::stoi;
@@ -14,6 +14,21 @@ mod line_parser;
 pub struct Line<'a> {
     label: Option<&'a str>,
     operation: Option<(Operator, SVec<2, &'a str>)>, // (operator, operands)
+}
+
+impl<'a> Line<'a> {
+    pub fn build(&self) -> Result<MlGen, ()> {
+        if self.operation.is_none() {
+            Err(())
+        }else {
+        MlGen::raw_encode(self.opecode(),
+            self.rex(),
+            self.modrm(),
+            self.imm(),
+            self.add_reg(),
+            self.rel())
+        }
+    }
 }
 
 impl<'a> Line<'a> {
@@ -34,27 +49,43 @@ impl<'a> Line<'a> {
     }
 
     pub fn imm(&self) -> ImmMode {
-        let value = stoi(self.get_operand(OperandType::Imm).expect("invalid input")).expect("invalid operation");
-        let transmuted_value = unsafe { transmute::<isize, usize>(value) };
+        if let Some(imm_operand) = self.get_operand(OperandType::Imm) {
+            let value = stoi(imm_operand).expect("invalid operation");
+            let transmuted_value = unsafe { transmute::<isize, usize>(value) };
 
-        match self.operation.expect("invalid input").0.encoding_rule.imm {
-            ImmRule::None => ImmMode::None,
-            ImmRule::Ib => ImmMode::Ib(transmuted_value as u8),
-            ImmRule::Iw => ImmMode::Iw(transmuted_value as u16),
-            ImmRule::Id => ImmMode::Id(transmuted_value as u32),
-            ImmRule::Io => ImmMode::Io(transmuted_value as u64),
+            match self.operation.expect("invalid input").0.encoding_rule.imm {
+                ImmRule::None => ImmMode::None,
+                ImmRule::Ib => ImmMode::Ib(transmuted_value as u8),
+                ImmRule::Iw => ImmMode::Iw(transmuted_value as u16),
+                ImmRule::Id => ImmMode::Id(transmuted_value as u32),
+                ImmRule::Io => ImmMode::Io(transmuted_value as u64),
+            }
+        }else {
+            ImmMode::None
         }
     }
 
     pub fn add_reg(&self) -> AddRegMode {
-        let reg: Register = self.get_operand(OperandType::Reg).expect("invalid operation").parse().expect("invalid operation");
+        if let Some(reg_operand) = self.get_operand(OperandType::Reg) {
+            let reg: Register = reg_operand.parse().expect("invalid operation");
 
-        match self.operation.expect("invalid input").0.encoding_rule.add_reg{
-            AddRegRule::None => AddRegMode::None,
-            AddRegRule::Rb => if reg.is_8bit() { AddRegMode::Rb(reg) } else { panic!("invalid input") },
-            AddRegRule::Rw => if reg.is_16bit() { AddRegMode::Rw(reg) } else { panic!("invalid input") },
-            AddRegRule::Rd => if reg.is_32bit() { AddRegMode::Rd(reg) } else { panic!("invalid input") },
-            AddRegRule::Ro => if reg.is_64bit() { AddRegMode::Ro(reg) } else { panic!("invalid input") },
+            match self.operation.expect("invalid input").0.encoding_rule.add_reg{
+                AddRegRule::None => AddRegMode::None,
+                AddRegRule::Rb => if reg.is_8bit() { AddRegMode::Rb(reg) } else { panic!("invalid input") },
+                AddRegRule::Rw => if reg.is_16bit() { AddRegMode::Rw(reg) } else { panic!("invalid input") },
+                AddRegRule::Rd => if reg.is_32bit() { AddRegMode::Rd(reg) } else { panic!("invalid input") },
+                AddRegRule::Ro => if reg.is_64bit() { AddRegMode::Ro(reg) } else { panic!("invalid input") },
+            }
+        }else {
+            AddRegMode::None
+        }
+    }
+
+    pub fn rel(&self) -> RelMode {
+        if let Some(rel_operand) = self.get_operand(OperandType::Rel) {
+            RelMode::Cd(stoi(rel_operand).expect("invalid operation") as i32)
+        }else {
+            RelMode::None
         }
     }
 
@@ -246,7 +277,7 @@ pub static operators: &[Operator] = &[
             rex: RexRule::None,
             modrm: ModRmRule::None,
             imm: ImmRule::None,
-            add_reg: AddRegRule::Rd,
+            add_reg: AddRegRule::Ro,
         },
     }, //REX.W + 58+ rd POP r64
     Operator {
@@ -257,7 +288,7 @@ pub static operators: &[Operator] = &[
             rex: RexRule::RexW,
             modrm: ModRmRule::None,
             imm: ImmRule::None,
-            add_reg: AddRegRule::Rd,
+            add_reg: AddRegRule::Ro,
         },
     }, //C3 RET
     Operator {

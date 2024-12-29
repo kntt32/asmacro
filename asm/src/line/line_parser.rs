@@ -13,9 +13,9 @@ pub fn get_reg64(mut expr: &str) -> Option<Register> {
     }
 }
 
-pub fn get_rm64_ref(expr: &str) -> Option<(isize, Register, Option<(Register, u8)>)> {
+pub fn get_rm64_ref(expr: &str) -> Option<(isize, Register, Register, u8>)> {
     // disp[base], disp[base, index] or disp[base, index, scale]
-    // Option<(disp, base, Option<(index, scale)>)>
+    // Option<(disp, base, index, scale)>
 
     let mut operand = expr;
 
@@ -39,7 +39,7 @@ pub fn get_rm64_ref(expr: &str) -> Option<(isize, Register, Option<(Register, u8
     } else {
         return if operand.ends_with(']') {
             if let Ok(base_temp) = operand[..operand.len() - ']'.len_utf8()].trim().parse() {
-                Some((disp, base_temp, None))
+                Some((disp, base_temp, Register::Rax, 0))
             } else {
                 None
             }
@@ -59,7 +59,7 @@ pub fn get_rm64_ref(expr: &str) -> Option<(isize, Register, Option<(Register, u8
     } else {
         return if operand.ends_with(']') {
             if let Ok(index_temp) = operand[..operand.len() - ']'.len_utf8()].trim().parse() {
-                Some((disp, base, Some((index_temp, 1))))
+                Some((disp, base, index_temp, 1))
             } else {
                 None
             }
@@ -71,7 +71,7 @@ pub fn get_rm64_ref(expr: &str) -> Option<(isize, Register, Option<(Register, u8
     // get scale
     if operand.ends_with(']') {
         if let Ok(scale) = operand[..operand.len() - ']'.len_utf8()].trim().parse() {
-            Some((disp, base, Some((index, scale))))
+            Some((disp, base, index, scale))
         } else {
             None
         }

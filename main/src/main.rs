@@ -19,6 +19,6 @@ main:
     );
 
     for line in parse {
-        println!("{:?}", line.unwrap().1.modrm_rm_ref_base());
+        println!("{:?}", line.unwrap().1.build());
     }
 }
