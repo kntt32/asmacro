@@ -7,8 +7,8 @@
 /// assert_eq!(0b101101110101010, stoi("0b101101110101010").unwrap());
 /// assert_eq!(0o116672, stoi("0o116672").unwrap());
 /// ```
-pub fn stoi(s: &str) -> Option<isize> {
-    const STOI_FUNCTIONS: [fn(&str) -> Option<isize>; 5] =
+pub fn stoi(s: &str) -> Option<i128> {
+    const STOI_FUNCTIONS: [fn(&str) -> Option<i128>; 5] =
         [stoi_minus, stoi_octal, stoi_decimal, stoi_hex, stoi_binary];
 
     for f in STOI_FUNCTIONS {
@@ -32,12 +32,12 @@ fn remove_prefix<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
     }
 }
 
-fn stoi_helper(s: &str, n: &[char]) -> Option<isize> {
-    let mut num: isize = 0;
+fn stoi_helper(s: &str, n: &[char]) -> Option<i128> {
+    let mut num: i128 = 0;
 
     for c in s.chars().map(|c| c.to_ascii_lowercase()) {
         let mut match_flag = false;
-        if let Some(muln) = num.checked_mul(n.len() as isize) {
+        if let Some(muln) = num.checked_mul(n.len() as i128) {
             num = muln;
         } else {
             return None;
@@ -45,7 +45,7 @@ fn stoi_helper(s: &str, n: &[char]) -> Option<isize> {
 
         for i in 0..n.len() {
             if c == n[i] {
-                num += i as isize;
+                num += i as i128;
                 match_flag = true;
                 break;
             }
@@ -58,17 +58,17 @@ fn stoi_helper(s: &str, n: &[char]) -> Option<isize> {
     Some(num)
 }
 
-fn stoi_minus(s: &str) -> Option<isize> {
+fn stoi_minus(s: &str) -> Option<i128> {
     stoi(remove_prefix(s, "-")?.trim()).map(|v| -v)
 }
 
 /// Binary to Integer
-pub fn stoi_binary(s: &str) -> Option<isize> {
+pub fn stoi_binary(s: &str) -> Option<i128> {
     stoi_helper(remove_prefix(s, "0b")?, &['0', '1'])
 }
 
 /// Octal to Integer
-pub fn stoi_octal(s: &str) -> Option<isize> {
+pub fn stoi_octal(s: &str) -> Option<i128> {
     stoi_helper(
         remove_prefix(s, "0o")?,
         &['0', '1', '2', '3', '4', '5', '6', '7'],
@@ -76,12 +76,12 @@ pub fn stoi_octal(s: &str) -> Option<isize> {
 }
 
 /// Decimal to Integer
-pub fn stoi_decimal(s: &str) -> Option<isize> {
+pub fn stoi_decimal(s: &str) -> Option<i128> {
     stoi_helper(s, &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
 }
 
 /// Hex to Integer
-pub fn stoi_hex(s: &str) -> Option<isize> {
+pub fn stoi_hex(s: &str) -> Option<i128> {
     stoi_helper(
         remove_prefix(s, "0x")?,
         &[

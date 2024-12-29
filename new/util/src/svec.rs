@@ -3,7 +3,7 @@ use std::convert::From;
 use std::fmt::{Binary, Display, Error, Formatter, LowerHex};
 use std::iter::{IntoIterator, Iterator};
 use std::mem::size_of;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Add, AddAssign, Deref, DerefMut};
 
 /// SVec is a vector collection type using only stack.
 /// # Feature
@@ -156,6 +156,27 @@ impl<const C: usize, T: Copy + Default> Deref for SVec<C, T> {
 impl<const C: usize, T: Copy + Default> DerefMut for SVec<C, T> {
     fn deref_mut(&mut self) -> &mut [T] {
         &mut self.array[0..self.len]
+    }
+}
+
+impl<const C: usize, const D: usize, T: Copy + Default> AddAssign<SVec<D, T>> for SVec<C, T> {
+    fn add_assign(&mut self, rhs: SVec<D, T>) {
+        if C <= self.len() + rhs.len() {
+            panic!("buffer overflow");
+        }
+
+        for v in rhs {
+            self.push(v);
+        }
+    }
+}
+
+impl<const C: usize, const D: usize, T: Copy + Default> Add<SVec<D, T>> for SVec<C, T> {
+    type Output = SVec<C, T>;
+
+    fn add(mut self, rhs: SVec<D, T>) -> Self::Output {
+        self += rhs;
+        self
     }
 }
 
