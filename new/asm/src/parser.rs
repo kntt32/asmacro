@@ -59,6 +59,7 @@ impl<'a> Iterator for Parser<'a> {
     }
 }
 
+/// Parser helper functions
 mod parser_helper {
     fn is_keyword(mut word: &str) -> bool {
         word = word.trim();
@@ -80,6 +81,7 @@ mod parser_helper {
         true
     }
 
+    /// If this is a label
     pub fn is_label(mut line: &str) -> bool {
         line = line.trim();
         if !line.ends_with(':') {
@@ -89,6 +91,7 @@ mod parser_helper {
         is_keyword(line)
     }
 
+    /// If this is a assembler command
     pub fn is_asm_command(mut line: &str) -> bool {
         line = line.trim();
         if !line.starts_with('.') {
@@ -98,6 +101,7 @@ mod parser_helper {
         is_keyword(line)
     }
 
+    /// If this is a instruction
     pub fn is_instruction(line: &str) -> bool {
         let mut line_split = line.split(' ');
 

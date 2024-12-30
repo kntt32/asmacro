@@ -43,7 +43,7 @@ impl<'a> Line<'a> {
 
     pub fn get_instruction(self) -> Option<Instruction> {
         for i in INSTRUCTION_LIST {
-            if i.is_match(&self) {
+            if i.match_with(&self) {
                 return Some(*i);
             }
         }

@@ -6,6 +6,7 @@ use util::svec::SVec;
 
 mod instruction_database;
 
+/// Instruction properties
 #[derive(Clone, Copy, Debug)]
 pub struct Instruction {
     encoding: EncodingRule,
@@ -13,15 +14,18 @@ pub struct Instruction {
 }
 
 impl Instruction {
+    /// Get mnemonic
     pub const fn mnemonic(&self) -> &'static str {
         self.expression.mnemonic()
     }
 
-    pub fn is_match(&self, line: &Line) -> bool {
-        self.expression.is_match(line)
+    /// If line is match
+    pub fn match_with(&self, line: &Line) -> bool {
+        self.expression.match_with(line)
     }
 }
 
+/// Encoding rule information
 #[derive(Clone, Copy, Debug)]
 pub struct EncodingRule {
     opecode: SVec<3, u8>,
@@ -31,18 +35,21 @@ pub struct EncodingRule {
     addreg: Option<AddRegRule>,
 }
 
+/// Rex encoding rule
 #[derive(Clone, Copy, Debug)]
 pub enum RexRule {
     Rex,
     RexW,
 }
 
+/// ModRm encoding rule
 #[derive(Clone, Copy, Debug)]
 pub enum ModRmRule {
     R,
     Dight(u8),
 }
 
+/// Immediately encoding rule
 #[derive(Clone, Copy, Debug)]
 pub enum ImmRule {
     Imm8,
@@ -51,6 +58,7 @@ pub enum ImmRule {
     Imm64,
 }
 
+/// Encoding rule of register embed in opecode
 #[derive(Clone, Copy, Debug)]
 pub enum AddRegRule {
     R8,
@@ -59,6 +67,7 @@ pub enum AddRegRule {
     R64,
 }
 
+/// Information about how to expressed in assembly code
 #[derive(Clone, Copy, Debug)]
 pub struct Expression {
     mnemonic: &'static str,
@@ -66,19 +75,21 @@ pub struct Expression {
 }
 
 impl Expression {
+    /// Get mnemonic
     pub const fn mnemonic(&self) -> &'static str {
         self.mnemonic
     }
 
-    pub fn is_match(&self, line: &Line) -> bool {
-        self.mnemonic_is_match(line) && self.operands_is_match(line)
+    /// If self is match with line
+    pub fn match_with(&self, line: &Line) -> bool {
+        self.mnemonic_match_with(line) && self.operands_match_with(line)
     }
 
-    fn mnemonic_is_match(&self, line: &Line) -> bool {
+    fn mnemonic_match_with(&self, line: &Line) -> bool {
         line.mnemonic() == Some(self.mnemonic)
     }
 
-    fn operands_is_match(&self, line: &Line) -> bool {
+    fn operands_match_with(&self, line: &Line) -> bool {
         let Some(operands) = line.operands() else {
             return false;
         };
@@ -88,7 +99,7 @@ impl Expression {
                 let Some(operand) = operands[i] else {
                     return false;
                 };
-                if !operand_type.is_match(operand) {
+                if !operand_type.match_with(operand) {
                     return false;
                 }
             }
@@ -98,6 +109,7 @@ impl Expression {
     }
 }
 
+/// Operand types
 #[derive(Clone, Copy, Debug)]
 pub enum OperandType {
     Rel32,
@@ -116,39 +128,40 @@ pub enum OperandType {
 }
 
 impl OperandType {
-    pub fn is_match(self, expr: &str) -> bool {
+    /// If self is match with expr
+    pub fn match_with(self, expr: &str) -> bool {
         match self {
-            OperandType::Rel32 => number_is_match(expr, i32::MIN as i128, i32::MAX as i128),
-            OperandType::R8 => register_is_match(expr, Register::is_8bit),
-            OperandType::R16 => register_is_match(expr, Register::is_16bit),
-            OperandType::R32 => register_is_match(expr, Register::is_32bit),
-            OperandType::R64 => register_is_match(expr, Register::is_64bit),
-            OperandType::Imm8 => number_is_match(expr, i8::MIN as i128, u8::MAX as i128),
-            OperandType::Imm16 => number_is_match(expr, i16::MIN as i128, u16::MAX as i128),
-            OperandType::Imm32 => number_is_match(expr, i32::MIN as i128, u32::MAX as i128),
-            OperandType::Imm64 => number_is_match(expr, i64::MIN as i128, u64::MAX as i128),
+            OperandType::Rel32 => number_match_with(expr, i32::MIN as i128, i32::MAX as i128),
+            OperandType::R8 => register_match_with(expr, Register::is_8bit),
+            OperandType::R16 => register_match_with(expr, Register::is_16bit),
+            OperandType::R32 => register_match_with(expr, Register::is_32bit),
+            OperandType::R64 => register_match_with(expr, Register::is_64bit),
+            OperandType::Imm8 => number_match_with(expr, i8::MIN as i128, u8::MAX as i128),
+            OperandType::Imm16 => number_match_with(expr, i16::MIN as i128, u16::MAX as i128),
+            OperandType::Imm32 => number_match_with(expr, i32::MIN as i128, u32::MAX as i128),
+            OperandType::Imm64 => number_match_with(expr, i64::MIN as i128, u64::MAX as i128),
             OperandType::Rm8 => {
-                rm_is_match(expr, Register::is_8bit, i8::MIN as i128, i8::MAX as i128)
+                rm_match_with(expr, Register::is_8bit, i8::MIN as i128, i8::MAX as i128)
             }
             OperandType::Rm16 => {
-                rm_is_match(expr, Register::is_16bit, i16::MIN as i128, i16::MAX as i128)
+                rm_match_with(expr, Register::is_16bit, i16::MIN as i128, i16::MAX as i128)
             }
             OperandType::Rm32 => {
-                rm_is_match(expr, Register::is_32bit, i32::MIN as i128, i32::MAX as i128)
+                rm_match_with(expr, Register::is_32bit, i32::MIN as i128, i32::MAX as i128)
             }
             OperandType::Rm64 => {
-                rm_is_match(expr, Register::is_64bit, i64::MIN as i128, i64::MAX as i128)
+                rm_match_with(expr, Register::is_64bit, i64::MIN as i128, i64::MAX as i128)
             }
         }
     }
 }
 
-fn number_is_match(expr: &str, min: i128, max: i128) -> bool {
+fn number_match_with(expr: &str, min: i128, max: i128) -> bool {
     let value = stoi(expr);
     value.is_some() && min <= value.expect("unknown error") && value.expect("unknown error") <= max
 }
 
-fn register_is_match(expr: &str, p: fn(Register) -> bool) -> bool {
+fn register_match_with(expr: &str, p: fn(Register) -> bool) -> bool {
     let value = expr.parse::<Register>();
     if let Ok(r) = value {
         p(r)
@@ -157,8 +170,8 @@ fn register_is_match(expr: &str, p: fn(Register) -> bool) -> bool {
     }
 }
 
-fn rm_is_match(expr: &str, p: fn(Register) -> bool, min: i128, max: i128) -> bool {
-    if register_is_match(expr, p) {
+fn rm_match_with(expr: &str, p: fn(Register) -> bool, min: i128, max: i128) -> bool {
+    if register_match_with(expr, p) {
         true
     } else {
         // disp[base, index, scale]
@@ -166,15 +179,15 @@ fn rm_is_match(expr: &str, p: fn(Register) -> bool, min: i128, max: i128) -> boo
             return false;
         };
 
-        let base_is_match = p(parse_rm.1);
-        let index_is_match = if let Some((i, _)) = parse_rm.2 {
+        let base_match_with = p(parse_rm.1);
+        let index_match_with = if let Some((i, _)) = parse_rm.2 {
             p(i)
         } else {
             true
         };
-        let disp_is_match = min <= parse_rm.0 as i128 && parse_rm.0 as i128 <= max;
+        let disp_match_with = min <= parse_rm.0 as i128 && parse_rm.0 as i128 <= max;
 
-        base_is_match && index_is_match && disp_is_match
+        base_match_with && index_match_with && disp_match_with
     }
 }
 

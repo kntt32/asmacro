@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+/// Enum for Register
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Register {
     Rax,
@@ -73,6 +74,7 @@ pub enum Register {
 }
 
 impl Register {
+    /// If this register is 64bit
     pub fn is_64bit(self) -> bool {
         const RAX_USIZE: usize = Register::Rax as usize;
         const RIP_USIZE: usize = Register::Rip as usize;
@@ -86,6 +88,7 @@ impl Register {
         }
     }
 
+    /// If this register is 32bit
     pub fn is_32bit(self) -> bool {
         const EAX_USIZE: usize = Register::Eax as usize;
         const R15D_USIZE: usize = Register::R15d as usize;
@@ -99,6 +102,7 @@ impl Register {
         }
     }
 
+    /// If this register is 16bit
     pub fn is_16bit(self) -> bool {
         const AX_USIZE: usize = Register::Ax as usize;
         const R15W_USIZE: usize = Register::R15w as usize;
@@ -112,6 +116,7 @@ impl Register {
         }
     }
 
+    /// If this register is 8bit
     pub fn is_8bit(self) -> bool {
         const AL_USIZE: usize = Register::Al as usize;
         const R15L_USIZE: usize = Register::R15l as usize;
@@ -125,6 +130,7 @@ impl Register {
         }
     }
 
+    /// Get 8bit register code
     pub fn to_regcode8(self) -> Result<u8, ()> {
         if self.is_8bit() {
             Ok((self as usize - Self::Al as usize) as u8)
@@ -133,6 +139,7 @@ impl Register {
         }
     }
 
+    /// Get 64bit register code
     pub fn to_regcode64(self) -> Result<u8, ()> {
         if self.is_64bit() {
             if self != Self::Rip {

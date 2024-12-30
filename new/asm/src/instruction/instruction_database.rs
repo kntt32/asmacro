@@ -1,5 +1,6 @@
 use super::*;
 
+/// Instruction list
 pub static INSTRUCTION_LIST: &[Instruction] = &[
     PUSH_R64,
     PUSH_RM64,
