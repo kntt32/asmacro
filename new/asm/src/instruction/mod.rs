@@ -1,22 +1,28 @@
-use crate::parser::Line;
+use crate::line::Line;
 use crate::register::Register;
 pub use instruction_database::INSTRUCTION_LIST;
-use util::functions::stoi;
+use util::functions::{get_inner_bracket, result_to_option, stoi};
 use util::svec::SVec;
 
 mod instruction_database;
 
+#[derive(Clone, Copy, Debug)]
 pub struct Instruction {
     encoding: EncodingRule,
     expression: Expression,
 }
 
 impl Instruction {
+    pub const fn mnemonic(&self) -> &'static str {
+        self.expression.mnemonic()
+    }
+
     pub fn is_match(&self, line: &Line) -> bool {
         self.expression.is_match(line)
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct EncodingRule {
     opecode: SVec<3, u8>,
     rex: Option<RexRule>,
@@ -25,44 +31,74 @@ pub struct EncodingRule {
     addreg: Option<AddRegRule>,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum RexRule {
     Rex,
     RexW,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum ModRmRule {
     R,
     Dight(u8),
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum ImmRule {
-    Ib,
-    Iw,
-    Id,
-    Io,
+    Imm8,
+    Imm16,
+    Imm32,
+    Imm64,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum AddRegRule {
-    Rb,
-    Rw,
-    Rd,
-    Ro,
+    R8,
+    R16,
+    R32,
+    R64,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct Expression {
     mnemonic: &'static str,
     operands: [Option<OperandType>; 2],
 }
 
 impl Expression {
+    pub const fn mnemonic(&self) -> &'static str {
+        self.mnemonic
+    }
+
     pub fn is_match(&self, line: &Line) -> bool {
-        let mnemonic_is_match = line.mnemonic() == Some(self.mnemonic);
-        let operands_is_match = [false; 2];
-        todo!()
+        self.mnemonic_is_match(line) && self.operands_is_match(line)
+    }
+
+    fn mnemonic_is_match(&self, line: &Line) -> bool {
+        line.mnemonic() == Some(self.mnemonic)
+    }
+
+    fn operands_is_match(&self, line: &Line) -> bool {
+        let Some(operands) = line.operands() else {
+            return false;
+        };
+
+        for i in 0..2 {
+            if let Some(operand_type) = self.operands[i] {
+                let Some(operand) = operands[i] else {
+                    return false;
+                };
+                if !operand_type.is_match(operand) {
+                    return false;
+                }
+            }
+        }
+
+        true
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum OperandType {
     Rel32,
     R8,
@@ -121,28 +157,64 @@ fn register_is_match(expr: &str, p: fn(Register) -> bool) -> bool {
     }
 }
 
-fn rm_is_match(expr: &str, p: fn(Register) -> bool, max: i128, min: i128) -> bool {
-    // disp[base, index, scale]
-    let Some(parse_rm) = parse_rm(expr) else {
-        return false;
-    };
-
-    let base_is_match = p(parse_rm.1);
-    let index_is_match = if let Some((i, _)) = parse_rm.2 {
-        p(i)
-    } else {
+fn rm_is_match(expr: &str, p: fn(Register) -> bool, min: i128, max: i128) -> bool {
+    if register_is_match(expr, p) {
         true
-    };
-    let disp_is_match = min as i64 <= parse_rm.0 && parse_rm.0 <= max as i64;
+    } else {
+        // disp[base, index, scale]
+        let Some(parse_rm) = parse_rm(expr.trim()) else {
+            return false;
+        };
 
-    base_is_match && index_is_match && disp_is_match
+        let base_is_match = p(parse_rm.1);
+        let index_is_match = if let Some((i, _)) = parse_rm.2 {
+            p(i)
+        } else {
+            true
+        };
+        let disp_is_match = min <= parse_rm.0 as i128 && parse_rm.0 as i128 <= max;
+        
+        base_is_match && index_is_match && disp_is_match
+    }
 }
 
-fn parse_rm(expr: &str) -> Option<(i64, Register, Option<(Register, u8)>)> {
+fn parse_rm(mut expr: &str) -> Option<(i64, Register, Option<(Register, u8)>)> {
     let disp: i64 = if !expr.starts_with('[') {
-        stoi(expr.split_once('[')?.0)? as i64
+        let value = stoi(expr.split_once('[')?.0)?;
+        if i64::MIN as i128 <= value && value <= i64::MAX as i128 {
+            value as i64
+        } else {
+            return None;
+        }
     } else {
         0
     };
-    todo!()
+
+    expr = expr.split_once('[')?.1.trim();
+    if !expr.ends_with(']') {
+        return None;
+    };
+    expr = &expr[..expr.len() - ']'.len_utf8()];
+    let mut arguments_iter = expr.split(',');
+
+    let base = result_to_option(arguments_iter.next()?.parse::<Register>())?;
+
+    let index = if let Some(s) = arguments_iter.next() {
+        result_to_option(s.parse::<Register>())?
+    } else {
+        return Some((disp, base, None));
+    };
+
+    let scale = if let Some(s) = arguments_iter.next() {
+        let value = stoi(s)?;
+        if value == 1 || value == 2 || value == 4 || value == 8 {
+            value as u8
+        } else {
+            return None;
+        }
+    } else {
+        return Some((disp, base, Some((index, 1))));
+    };
+
+    Some((disp, base, Some((index, scale))))
 }

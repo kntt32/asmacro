@@ -90,6 +90,27 @@ pub fn stoi_hex(s: &str) -> Option<i128> {
     )
 }
 
+/// Get string inner bracket.  Arguments bracket_start and bracket_end must be defferent each other.
+pub fn get_inner_bracket(mut expr: &str, bracket_start: char, bracket_end: char) -> Option<&str> {
+    if bracket_start == bracket_end {
+        panic!("invalid input");
+    }
+    expr = expr.trim();
+    if expr.starts_with(bracket_start) && expr.ends_with(bracket_end) {
+        Some(&expr[bracket_start.len_utf8()..expr.len() - bracket_end.len_utf8()])
+    } else {
+        None
+    }
+}
+
+/// Convert Result<T, E> to Option<T>
+pub fn result_to_option<T, E>(result: Result<T, E>) -> Option<T> {
+    match result {
+        Ok(t) => Some(t),
+        Err(_) => None,
+    }
+}
+
 /// Matching string
 /// # Example
 /// ```

@@ -1,3 +1,4 @@
+use asm::instruction::OperandType;
 use asm::parser::Parser;
 
 fn main() {
@@ -5,16 +6,23 @@ fn main() {
 .text
 main:
     push rbp
-    mov rbp, rsp
+    mov rbp rsp
     
-    mov rax, 0
-    mov rsp, rbp
+    push 1
+    mov [rsp] 0
+    pop rax
+
+    mov rsp rbp
     pop rbp
     ret";
 
     let parser = Parser::new(source);
 
     for line in parser {
-        println!("{:?}", line);
+        if let Some(n) = line.get_instruction() {
+            println!("{:?}", n.mnemonic());
+        } else {
+            println!("");
+        }
     }
 }
