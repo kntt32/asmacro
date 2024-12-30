@@ -1,4 +1,5 @@
 use crate::instruction::{Instruction, INSTRUCTION_LIST};
+use util::svec::SVec;
 
 /// Assembly line information
 #[derive(Clone, Copy, Debug)]
@@ -50,3 +51,19 @@ impl<'a> Line<'a> {
         None
     }
 }
+
+// Encode
+impl<'a> Line<'a> {
+    /// Get opecode in raw machine code
+    pub fn opecode(self) -> Option<SVec<3, u8>> {
+        let instruction = self.get_instruction()?;
+        let mut opecode = instruction.opecode();
+        todo!();
+        //opecode[opecode.len() - 1] += ;
+    }
+
+    fn opecode_len(self) -> Option<usize> {
+        todo!()
+    }
+}
+

@@ -14,6 +14,11 @@ pub struct Instruction {
 }
 
 impl Instruction {
+    /// Get opecode
+    pub const fn opecode(&self) -> SVec<3, u8> {
+        self.encoding.opecode
+    }
+
     /// Get mnemonic
     pub const fn mnemonic(&self) -> &'static str {
         self.expression.mnemonic()
