@@ -173,7 +173,7 @@ fn rm_is_match(expr: &str, p: fn(Register) -> bool, min: i128, max: i128) -> boo
             true
         };
         let disp_is_match = min <= parse_rm.0 as i128 && parse_rm.0 as i128 <= max;
-        
+
         base_is_match && index_is_match && disp_is_match
     }
 }
