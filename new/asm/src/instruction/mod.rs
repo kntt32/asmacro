@@ -1,7 +1,7 @@
 use crate::line::Line;
 use crate::register::Register;
 pub use instruction_database::INSTRUCTION_LIST;
-use util::functions::{get_inner_bracket, result_to_option, stoi};
+use util::functions::{result_to_option, stoi};
 use util::svec::SVec;
 
 mod instruction_database;
@@ -28,6 +28,16 @@ impl Instruction {
     pub fn match_with(&self, line: &Line) -> bool {
         self.expression.match_with(line)
     }
+
+    /// Get reference to encoding rule
+    pub const fn encoding(&self) -> &EncodingRule {
+        &self.encoding
+    }
+
+    /// Get reference to expression
+    pub const fn expression(&self) -> &Expression {
+        &self.expression
+    }
 }
 
 /// Encoding rule information
@@ -40,22 +50,34 @@ pub struct EncodingRule {
     addreg: Option<AddRegRule>,
 }
 
+impl EncodingRule {
+    /// Return opecode
+    pub fn opecode(&self) -> SVec<3, u8> {
+        self.opecode
+    }
+
+    /// Return Addreg mode
+    pub fn addreg(&self) -> Option<AddRegRule> {
+        self.addreg
+    }
+}
+
 /// Rex encoding rule
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RexRule {
     Rex,
     RexW,
 }
 
 /// ModRm encoding rule
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ModRmRule {
     R,
     Dight(u8),
 }
 
 /// Immediately encoding rule
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ImmRule {
     Imm8,
     Imm16,
@@ -64,7 +86,7 @@ pub enum ImmRule {
 }
 
 /// Encoding rule of register embed in opecode
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AddRegRule {
     R8,
     R16,
@@ -112,10 +134,20 @@ impl Expression {
 
         true
     }
+
+    /// Get operand index by operand type
+    pub fn get_operand_index_by_type(&self, operand_type: OperandType) -> Option<usize> {
+        for i in 0..2 {
+            if self.operands[i] == Some(operand_type) {
+                return Some(i);
+            }
+        }
+        None
+    }
 }
 
 /// Operand types
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum OperandType {
     Rel32,
     R8,

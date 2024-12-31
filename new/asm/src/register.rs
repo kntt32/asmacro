@@ -59,6 +59,10 @@ pub enum Register {
     Cl,
     Dl,
     Bl,
+    Ah,
+    Ch,
+    Dh,
+    Bh,
     Spl,
     Bpl,
     Sil,
@@ -131,14 +135,99 @@ impl Register {
     }
 
     /// Get 8bit register code
-    pub fn to_regcode8(self) -> Result<u8, ()> {
-        if self.is_8bit() {
-            Ok((self as usize - Self::Al as usize) as u8)
-        } else {
-            Err(())
+    /// Option<(rex.x, reg)
+    pub const fn to_regcode8(self) -> Option<(Option<bool>, u8)> {
+        match self {
+            Self::Al => Some((Some(false), 0)),
+            Self::Cl => Some((Some(false), 1)),
+            Self::Dl => Some((Some(false), 2)),
+            Self::Bl => Some((Some(false), 3)),
+            Self::Ah => Some((None, 4)),
+            Self::Ch => Some((None, 5)),
+            Self::Dh => Some((None, 6)),
+            Self::Bh => Some((None, 7)),
+            Self::Spl => Some((Some(false), 4)),
+            Self::Bpl => Some((Some(false), 5)),
+            Self::Sil => Some((Some(false), 6)),
+            Self::Dil => Some((Some(false), 7)),
+            Self::R8l => Some((Some(true), 0)),
+            Self::R9l => Some((Some(true), 1)),
+            Self::R10l => Some((Some(true), 2)),
+            Self::R11l => Some((Some(true), 3)),
+            Self::R12l => Some((Some(true), 4)),
+            Self::R13l => Some((Some(true), 5)),
+            Self::R14l => Some((Some(true), 6)),
+            Self::R15l => Some((Some(true), 7)),
+            _ => None,
         }
     }
 
+    pub const fn to_regcode16(self) -> Option<(Option<bool>, u8)> {
+        match self {
+            Self::Ax => Some((Some(false), 0)),
+            Self::Cx => Some((Some(false), 1)),
+            Self::Dx => Some((Some(false), 2)),
+            Self::Bx => Some((Some(false), 3)),
+            Self::Sp => Some((Some(false), 4)),
+            Self::Bp => Some((Some(false), 5)),
+            Self::Si => Some((Some(false), 6)),
+            Self::Di => Some((Some(false), 7)),
+            Self::R8w => Some((Some(true), 0)),
+            Self::R9w => Some((Some(true), 1)),
+            Self::R10w => Some((Some(true), 2)),
+            Self::R11w => Some((Some(true), 3)),
+            Self::R12w => Some((Some(true), 4)),
+            Self::R13w => Some((Some(true), 5)),
+            Self::R14w => Some((Some(true), 6)),
+            Self::R15w => Some((Some(true), 7)),
+            _ => None,
+        }
+    }
+
+    pub const fn to_regcode32(self) -> Option<(Option<bool>, u8)> {
+        match self {
+            Self::Eax => Some((Some(false), 0)),
+            Self::Ecx => Some((Some(false), 1)),
+            Self::Edx => Some((Some(false), 2)),
+            Self::Ebx => Some((Some(false), 3)),
+            Self::Esp => Some((Some(false), 4)),
+            Self::Ebp => Some((Some(false), 5)),
+            Self::Esi => Some((Some(false), 6)),
+            Self::Edi => Some((Some(false), 7)),
+            Self::R8d => Some((Some(true), 0)),
+            Self::R9d => Some((Some(true), 1)),
+            Self::R10d => Some((Some(true), 2)),
+            Self::R11d => Some((Some(true), 3)),
+            Self::R12d => Some((Some(true), 4)),
+            Self::R13d => Some((Some(true), 5)),
+            Self::R14d => Some((Some(true), 6)),
+            Self::R15d => Some((Some(true), 7)),
+            _ => None,
+        }
+    }
+
+    pub const fn to_regcode64(self) -> Option<(Option<bool>, u8)> {
+        match self {
+            Self::Rax => Some((Some(false), 0)),
+            Self::Rcx => Some((Some(false), 1)),
+            Self::Rdx => Some((Some(false), 2)),
+            Self::Rbx => Some((Some(false), 3)),
+            Self::Rsp => Some((Some(false), 4)),
+            Self::Rbp => Some((Some(false), 5)),
+            Self::Rsi => Some((Some(false), 6)),
+            Self::Rdi => Some((Some(false), 7)),
+            Self::R8 => Some((Some(true), 0)),
+            Self::R9 => Some((Some(true), 1)),
+            Self::R10 => Some((Some(true), 2)),
+            Self::R11 => Some((Some(true), 3)),
+            Self::R12 => Some((Some(true), 4)),
+            Self::R13 => Some((Some(true), 5)),
+            Self::R14 => Some((Some(true), 6)),
+            Self::R15 => Some((Some(true), 7)),
+            _ => None,
+        }
+    }
+    /*
     /// Get 64bit register code
     pub fn to_regcode64(self) -> Result<u8, ()> {
         if self.is_64bit() {
@@ -168,7 +257,7 @@ impl Register {
         } else {
             Err(())
         }
-    }
+    }*/
 }
 
 impl FromStr for Register {
