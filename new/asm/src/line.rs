@@ -115,7 +115,11 @@ impl<'a> Line<'a> {
         let mut opecode = instruction.encoding().opecode();
 
         let opecode_len = opecode.len();
-        opecode[opecode_len - 1] += self.addreg_regcode().or(Some((None,0))).expect("unknown error").1;
+        opecode[opecode_len - 1] += self
+            .addreg_regcode()
+            .or(Some((None, 0)))
+            .expect("unknown error")
+            .1;
 
         Some(opecode)
     }
@@ -140,7 +144,7 @@ impl<'a> Line<'a> {
     pub fn rex(self) -> Option<u8> {
         if let Some(addreg_regcode) = self.addreg_regcode() {
             todo!()
-        }else {
+        } else {
             todo!()
         }
     }
