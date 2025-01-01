@@ -1,5 +1,9 @@
-use crate::instruction::{AddRegRule, Instruction, OperandType, INSTRUCTION_LIST};
+use crate::instruction::{
+    AddRegRule, ImmRule, Instruction, OperandType, RexRule, INSTRUCTION_LIST,
+};
 use crate::register::Register;
+use std::mem::transmute;
+use util::functions::stoi;
 use util::svec::SVec;
 
 /// Assembly line information
@@ -43,6 +47,7 @@ impl<'a> Line<'a> {
         Some(self.split_instruction()?.1)
     }
 
+    /// Get instruction information
     pub fn get_instruction(self) -> Option<Instruction> {
         for i in INSTRUCTION_LIST {
             if i.match_with(&self) {
@@ -52,14 +57,16 @@ impl<'a> Line<'a> {
         None
     }
 
-    fn reg_operand_helper(self, operand_type: OperandType) -> Option<Register> {
+    fn get_operand_by_type(self, operand_type: OperandType) -> Option<&'a str> {
         let instruction = self.get_instruction()?;
         let operand_index = instruction
             .expression()
-            .get_operand_index_by_type(OperandType::R8)?;
-        let operands = self.operands()?;
+            .get_operand_index_by_type(operand_type)?;
+        self.operands()?[operand_index]
+    }
 
-        if let Ok(r) = operands[operand_index]?.parse::<Register>() {
+    fn reg_operand_helper(self, operand_type: OperandType) -> Option<Register> {
+        if let Ok(r) = self.get_operand_by_type(operand_type)?.parse::<Register>() {
             Some(r)
         } else {
             None
@@ -105,6 +112,58 @@ impl<'a> Line<'a> {
             None
         }
     }
+
+    fn imm_operand_helper(self, operand_type: OperandType) -> Option<i128> {
+        stoi(self.get_operand_by_type(operand_type)?)
+    }
+
+    /// Get imm8 operand
+    pub fn imm8_operand(self) -> Option<u8> {
+        let value = self.imm_operand_helper(OperandType::Imm8)?;
+        if i8::MIN as i128 <= value && value < 0 {
+            Some(unsafe { transmute::<i8, u8>(value as i8) })
+        } else if value <= u8::MAX as i128 {
+            Some(value as u8)
+        } else {
+            None
+        }
+    }
+
+    /// Get imm16 operand
+    pub fn imm16_operand(self) -> Option<u16> {
+        let value = self.imm_operand_helper(OperandType::Imm16)?;
+        if i16::MIN as i128 <= value && value < 0 {
+            Some(unsafe { transmute::<i16, u16>(value as i16) })
+        } else if value <= u16::MAX as i128 {
+            Some(value as u16)
+        } else {
+            None
+        }
+    }
+
+    /// Get imm32 operand
+    pub fn imm32_operand(self) -> Option<u32> {
+        let value = self.imm_operand_helper(OperandType::Imm32)?;
+        if i32::MIN as i128 <= value && value < 0 {
+            Some(unsafe { transmute::<i32, u32>(value as i32) })
+        } else if value <= u32::MAX as i128 {
+            Some(value as u32)
+        } else {
+            None
+        }
+    }
+
+    /// Get imm64 operand
+    pub fn imm64_operand(self) -> Option<u64> {
+        let value = self.imm_operand_helper(OperandType::Imm64)?;
+        if i64::MIN as i128 <= value && value < 0 {
+            Some(unsafe { transmute::<i64, u64>(value as i64) })
+        } else if value <= u64::MAX as i128 {
+            Some(value as u64)
+        } else {
+            None
+        }
+    }
 }
 
 // Encode
@@ -129,8 +188,8 @@ impl<'a> Line<'a> {
     }
 
     fn addreg_regcode(self) -> Option<(Option<bool>, u8)> {
-        let instruction = self.get_instruction()?;
-        let addreg_rule = instruction.encoding().addreg();
+        let instruction = self.get_instruction().expect("invalid operation");
+        let addreg_rule = instruction.encoding().addreg_rule();
 
         match addreg_rule {
             None => None,
@@ -141,11 +200,51 @@ impl<'a> Line<'a> {
         }
     }
 
+    fn rex_rule(self) -> Option<RexRule> {
+        self.get_instruction()
+            .expect("invalid operation")
+            .encoding()
+            .rex_rule()
+    }
+
+    fn imm_rule(self) -> Option<ImmRule> {
+        self.get_instruction()
+            .expect("invalid operation")
+            .encoding()
+            .imm_rule()
+    }
+
+    /// Get rex prefix in raw machine code
     pub fn rex(self) -> Option<u8> {
+        let mut rex_w = false;
+        let rex_r = false;
+        let rex_x = false;
+        let mut rex_b = false;
+        let rexrule_existing_flag = match self.rex_rule() {
+            None => false,
+            Some(RexRule::Rex) => true,
+            Some(RexRule::RexW) => {
+                rex_w = true;
+                true
+            }
+        };
+
         if let Some(addreg_regcode) = self.addreg_regcode() {
-            todo!()
-        } else {
-            todo!()
+            if let Some(b) = addreg_regcode.0 {
+                rex_b = b;
+            } else {
+                return None;
+            }
+        }
+
+        todo!()
+    }
+
+    /// Get Imm in raw machine code
+    pub fn imm(self) -> Option<SVec<8, u8>> {
+        match self.imm_rule() {
+            None => None,
+            _ => todo!(),
         }
     }
 }

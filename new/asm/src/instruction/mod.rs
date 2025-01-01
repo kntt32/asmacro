@@ -51,14 +51,24 @@ pub struct EncodingRule {
 }
 
 impl EncodingRule {
-    /// Return opecode
+    /// Get opecode
     pub fn opecode(&self) -> SVec<3, u8> {
         self.opecode
     }
 
-    /// Return Addreg mode
-    pub fn addreg(&self) -> Option<AddRegRule> {
+    /// Get addreg rule
+    pub fn addreg_rule(&self) -> Option<AddRegRule> {
         self.addreg
+    }
+
+    /// Get rex rule
+    pub fn rex_rule(&self) -> Option<RexRule> {
+        self.rex
+    }
+
+    /// Get imm rule
+    pub fn imm_rule(&self) -> Option<ImmRule> {
+        self.imm
     }
 }
 
