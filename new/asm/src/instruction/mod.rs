@@ -3,6 +3,7 @@ use crate::register::Register;
 pub use instruction_database::INSTRUCTION_LIST;
 use util::functions::{result_to_option, stoi};
 use util::svec::SVec;
+use std::cmp::{Ord, Eq, PartialEq, PartialOrd, Ordering};
 
 mod instruction_database;
 
@@ -44,10 +45,10 @@ impl Instruction {
 #[derive(Clone, Copy, Debug)]
 pub struct EncodingRule {
     opecode: SVec<3, u8>,
-    rex: Option<RexRule>,
     modrm: Option<ModRmRule>,
     imm: Option<ImmRule>,
     addreg: Option<AddRegRule>,
+    default_operand_size: OperandSize,
 }
 
 impl EncodingRule {
@@ -61,22 +62,41 @@ impl EncodingRule {
         self.addreg
     }
 
-    /// Get rex rule
-    pub fn rex_rule(&self) -> Option<RexRule> {
-        self.rex
-    }
-
     /// Get imm rule
     pub fn imm_rule(&self) -> Option<ImmRule> {
         self.imm
     }
+
+    /// Get default operand size
+    pub fn default_operand_size(&self) -> OperandSize {
+        self.default_operand_size
+    }
 }
 
-/// Rex encoding rule
+/// Default operand size
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum RexRule {
-    Rex,
-    RexW,
+pub enum OperandSize {
+    Ob,
+    Ow,
+    Od,
+    Oq,
+}
+
+impl Eq for OperandSize {}
+
+impl PartialOrd for OperandSize {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let lhs = *self as usize;
+        let rhs = *other as usize;
+        lhs.partial_cmp(&rhs)
+    }
+}
+
+impl Ord for OperandSize {
+    // Required method
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).expect("unknown error")
+    }
 }
 
 /// ModRm encoding rule
@@ -89,19 +109,19 @@ pub enum ModRmRule {
 /// Immediately encoding rule
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ImmRule {
-    Imm8,
-    Imm16,
-    Imm32,
-    Imm64,
+    Ib,
+    Iw,
+    Id,
+    Iq,
 }
 
 /// Encoding rule of register embed in opecode
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AddRegRule {
-    R8,
-    R16,
-    R32,
-    R64,
+    Rb,
+    Rw,
+    Rd,
+    Rq
 }
 
 /// Information about how to expressed in assembly code
@@ -115,6 +135,11 @@ impl Expression {
     /// Get mnemonic
     pub const fn mnemonic(&self) -> &'static str {
         self.mnemonic
+    }
+
+    /// Get operand types
+    pub const fn operands(&self) -> [Option<OperandType>; 2] {
+        self.operands
     }
 
     /// If self is match with line
@@ -175,6 +200,26 @@ pub enum OperandType {
 }
 
 impl OperandType {
+    /// Get operand size
+    pub const fn size(self) -> OperandSize {
+        match self {
+            OperandType::Rel32 => OperandSize::Od,
+
+            OperandType::R8 => OperandSize::Ob,
+            OperandType::R16 => OperandSize::Ow,
+            OperandType::R32 => OperandSize::Od,
+            OperandType::R64 => OperandSize::Oq,
+            OperandType::Imm8 => OperandSize::Ob,
+            OperandType::Imm16 => OperandSize::Ow,
+            OperandType::Imm32 => OperandSize::Od,
+            OperandType::Imm64 => OperandSize::Oq,
+            OperandType::Rm8 => OperandSize::Ob,
+            OperandType::Rm16 => OperandSize::Ow,
+            OperandType::Rm32 => OperandSize::Od,
+            OperandType::Rm64 => OperandSize::Oq,
+        }
+    }
+
     /// If self is match with expr
     pub fn match_with(self, expr: &str) -> bool {
         match self {

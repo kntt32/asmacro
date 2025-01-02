@@ -1,10 +1,11 @@
 use crate::instruction::{
-    AddRegRule, ImmRule, Instruction, OperandType, RexRule, INSTRUCTION_LIST,
+    AddRegRule, ImmRule, Instruction, OperandType, INSTRUCTION_LIST, OperandSize,
 };
 use crate::register::Register;
 use std::mem::transmute;
 use util::functions::stoi;
 use util::svec::SVec;
+use std::cmp::max;
 
 /// Assembly line information
 #[derive(Clone, Copy, Debug)]
@@ -193,18 +194,11 @@ impl<'a> Line<'a> {
 
         match addreg_rule {
             None => None,
-            Some(AddRegRule::R8) => self.r8_operand()?.to_regcode8(),
-            Some(AddRegRule::R16) => self.r16_operand()?.to_regcode16(),
-            Some(AddRegRule::R32) => self.r32_operand()?.to_regcode32(),
-            Some(AddRegRule::R64) => self.r64_operand()?.to_regcode64(),
+            Some(AddRegRule::Rb) => self.r8_operand()?.to_regcode8(),
+            Some(AddRegRule::Rw) => self.r16_operand()?.to_regcode16(),
+            Some(AddRegRule::Rd) => self.r32_operand()?.to_regcode32(),
+            Some(AddRegRule::Rq) => self.r64_operand()?.to_regcode64(),
         }
-    }
-
-    fn rex_rule(self) -> Option<RexRule> {
-        self.get_instruction()
-            .expect("invalid operation")
-            .encoding()
-            .rex_rule()
     }
 
     fn imm_rule(self) -> Option<ImmRule> {
@@ -214,30 +208,62 @@ impl<'a> Line<'a> {
             .imm_rule()
     }
 
-    /// Get rex prefix in raw machine code
-    pub fn rex(self) -> Option<u8> {
-        let mut rex_w = false;
-        let rex_r = false;
-        let rex_x = false;
-        let mut rex_b = false;
-        let rexrule_existing_flag = match self.rex_rule() {
-            None => false,
-            Some(RexRule::Rex) => true,
-            Some(RexRule::RexW) => {
-                rex_w = true;
-                true
-            }
-        };
+    fn rex_prefix_is_required(self) -> bool {
+        let instruction = self.get_instruction().expect("invalid operation");
+        let encoding = instruction.encoding();
+        let default_operand_size = encoding.default_operand_size();
+        assert!(OperandSize::Od <= default_operand_size);
 
-        if let Some(addreg_regcode) = self.addreg_regcode() {
-            if let Some(b) = addreg_regcode.0 {
-                rex_b = b;
-            } else {
-                return None;
-            }
+        if let Some(operand_size) = self.operand_size() {
+            default_operand_size < operand_size
+        }else {
+            false
+        }
+    }
+
+    fn prefix_x66_is_required(self) -> bool {
+        if let Some(operand_size) = self.operand_size() {
+            operand_size == OperandSize::Ob
+        }else {
+            false
+        }
+    }
+
+    fn operand_size(self) -> Option<OperandSize> {
+        let instruction = self.get_instruction().expect("invalid operation");
+        let expression = instruction.expression();
+        let operands_types = expression.operands();
+        max(operands_types[0].map(OperandType::size), operands_types[1].map(OperandType::size))
+    }
+
+    /// Get rex prefix in raw machine code
+    pub fn rex_prefix(self) -> Option<u8> {
+        let mut rex_w = false;
+        let mut rex_r = false;
+        let rex_x = false;
+        let rex_b = false;
+
+        rex_w = if self.rex_prefix_is_required() { true }else { false };
+        if let Some((Some(true), _)) = self.addreg_regcode() {
+            rex_r = true;
         }
 
-        todo!()
+        // coding ...
+
+        if rex_w || !(rex_r || rex_x || rex_b) {
+            let mut rex_prefix = 0x40;
+            if rex_w { rex_prefix |= 0x08; }
+            if rex_r { rex_prefix |= 0x04; }
+            if rex_x { rex_prefix |= 0x02; }
+            if rex_b { rex_prefix |= 0x01; }
+            Some(rex_prefix)
+        }else {
+            None
+        }
+    }
+
+    fn rex_prefix_exist(self) -> bool {
+        self.rex_prefix().is_some()
     }
 
     /// Get Imm in raw machine code

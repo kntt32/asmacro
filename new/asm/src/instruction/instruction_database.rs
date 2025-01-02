@@ -12,14 +12,14 @@ pub static INSTRUCTION_LIST: &[Instruction] = &[
     NEAR_RET,
 ];
 
-// 50+rdPUSH r64
+// PUSH reg64   50 +rq
 const PUSH_R64: Instruction = Instruction {
     encoding: EncodingRule {
         opecode: SVec::value([0x50, 0x00, 0x00], 1),
-        rex: None,
         modrm: None,
         imm: None,
-        addreg: Some(AddRegRule::R64),
+        addreg: Some(AddRegRule::Rq),
+        default_operand_size: OperandSize::Oq,
     },
     expression: Expression {
         mnemonic: "push",
@@ -27,14 +27,14 @@ const PUSH_R64: Instruction = Instruction {
     },
 };
 
-// FF /6 PUSH r/m64
+// PUSH reg/mem64   FF /6
 const PUSH_RM64: Instruction = Instruction {
     encoding: EncodingRule {
         opecode: SVec::value([0xff, 0x00, 0x00], 1),
-        rex: None,
         modrm: Some(ModRmRule::Dight(6)),
         imm: None,
         addreg: None,
+        default_operand_size: OperandSize::Oq,
     },
     expression: Expression {
         mnemonic: "push",
@@ -42,29 +42,29 @@ const PUSH_RM64: Instruction = Instruction {
     },
 };
 
-// 68 PUSH imm64
+// PUSH imm64   68 id
 const PUSH_IMM64: Instruction = Instruction {
     encoding: EncodingRule {
         opecode: SVec::value([0x68, 0x00, 0x00], 1),
-        rex: None,
         modrm: None,
-        imm: Some(ImmRule::Imm64),
+        imm: Some(ImmRule::Id),
         addreg: None,
+        default_operand_size: OperandSize::Oq,
     },
     expression: Expression {
         mnemonic: "push",
-        operands: [Some(OperandType::Imm64), None],
+        operands: [Some(OperandType::Imm32), None],
     },
 };
 
-// REX.W + 89 /rMOV r/m64,r64
+// MOV reg/mem64, reg64     89 /r
 const MOV_RM64_R64: Instruction = Instruction {
     encoding: EncodingRule {
         opecode: SVec::value([0x89, 0x00, 0x00], 1),
-        rex: Some(RexRule::RexW),
         modrm: Some(ModRmRule::R),
         imm: None,
         addreg: None,
+        default_operand_size: OperandSize::Od,
     },
     expression: Expression {
         mnemonic: "mov",
@@ -72,14 +72,14 @@ const MOV_RM64_R64: Instruction = Instruction {
     },
 };
 
-// REX.W + B8+ rd MOV r64,imm64
+// MOV reg64, imm64     B8 +rq iq
 const MOV_R64_IMM64: Instruction = Instruction {
     encoding: EncodingRule {
         opecode: SVec::value([0xb8, 0x00, 0x00], 1),
-        rex: Some(RexRule::RexW),
         modrm: None,
-        imm: Some(ImmRule::Imm64),
-        addreg: Some(AddRegRule::R64),
+        imm: Some(ImmRule::Iq),
+        addreg: Some(AddRegRule::Rq),
+        default_operand_size: OperandSize::Od,
     },
     expression: Expression {
         mnemonic: "mov",
@@ -87,29 +87,29 @@ const MOV_R64_IMM64: Instruction = Instruction {
     },
 };
 
-// REX.W + C7 /0 MOV r/m64,imm32
+// MOV reg/mem64, imm32     C7 /0 id
 const MOV_RM64_IMM32: Instruction = Instruction {
     encoding: EncodingRule {
         opecode: SVec::value([0xc7, 0x00, 0x00], 1),
-        rex: Some(RexRule::RexW),
         modrm: Some(ModRmRule::Dight(0)),
-        imm: Some(ImmRule::Imm32),
+        imm: Some(ImmRule::Id),
         addreg: None,
+        default_operand_size: OperandSize::Od,
     },
     expression: Expression {
         mnemonic: "mov",
-        operands: [Some(OperandType::Rm64), Some(OperandType::Imm64)],
+        operands: [Some(OperandType::Rm64), Some(OperandType::Imm32)],
     },
 };
 
-// REX.W + 58+ rd POP r64
+// POP reg64    58 +rq
 const POP_R64: Instruction = Instruction {
     encoding: EncodingRule {
         opecode: SVec::value([0x58, 0x00, 0x00], 1),
-        rex: Some(RexRule::RexW),
         modrm: None,
         imm: None,
-        addreg: Some(AddRegRule::R64),
+        addreg: Some(AddRegRule::Rq),
+        default_operand_size: OperandSize::Oq,
     },
     expression: Expression {
         mnemonic: "pop",
@@ -121,10 +121,10 @@ const POP_R64: Instruction = Instruction {
 const NEAR_RET: Instruction = Instruction {
     encoding: EncodingRule {
         opecode: SVec::value([0xc3, 0x00, 0x00], 1),
-        rex: None,
         modrm: None,
         imm: None,
         addreg: None,
+        default_operand_size: OperandSize::Oq,
     },
     expression: Expression {
         mnemonic: "ret",
