@@ -1,9 +1,9 @@
 use crate::line::Line;
 use crate::register::Register;
 pub use instruction_database::INSTRUCTION_LIST;
+use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use util::functions::{result_to_option, stoi};
 use util::svec::SVec;
-use std::cmp::{Ord, Eq, PartialEq, PartialOrd, Ordering};
 
 mod instruction_database;
 
@@ -73,13 +73,24 @@ impl EncodingRule {
     }
 }
 
-/// Default operand size
+/// Operand size
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum OperandSize {
     Ob,
     Ow,
     Od,
     Oq,
+}
+
+impl OperandSize {
+    pub fn value(self) -> usize {
+        match self {
+            OperandSize::Ob => 1,
+            OperandSize::Ow => 2,
+            OperandSize::Od => 4,
+            OperandSize::Oq => 8,
+        }
+    }
 }
 
 impl Eq for OperandSize {}
@@ -115,13 +126,24 @@ pub enum ImmRule {
     Iq,
 }
 
+impl ImmRule {
+    pub fn operand_type(self) -> OperandType {
+        match self {
+            ImmRule::Ib => OperandType::Imm8,
+            ImmRule::Iw => OperandType::Imm16,
+            ImmRule::Id => OperandType::Imm32,
+            ImmRule::Iq => OperandType::Imm64,
+        }
+    }
+}
+
 /// Encoding rule of register embed in opecode
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AddRegRule {
     Rb,
     Rw,
     Rd,
-    Rq
+    Rq,
 }
 
 /// Information about how to expressed in assembly code

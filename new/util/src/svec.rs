@@ -138,10 +138,26 @@ impl<const C: usize, T: Copy + Default> SVec<C, T> {
         vec
     }
 
-    pub const fn value(arr: [T; C], len: usize) -> SVec<C, T> {
+    /// Create SVec statically from array
+    pub const fn from_raw(arr: [T; C], len: usize) -> SVec<C, T> {
         SVec {
             array: arr,
             len: len,
+        }
+    }
+}
+
+impl<const C: usize> SVec<C, u8> {
+    /// Create SVec from u128 value
+    pub fn from_value(value: u128, len: usize) -> SVec<C, u8> {
+        if C <= 8 && len <= C {
+            let mut svec = SVec::new();
+            for i in 0..len {
+                svec.push(((value >> i * 8) & 0xff) as u8);
+            }
+            svec
+        } else {
+            panic!("invalid capacity")
         }
     }
 }

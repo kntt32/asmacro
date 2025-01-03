@@ -1,11 +1,11 @@
 use crate::instruction::{
-    AddRegRule, ImmRule, Instruction, OperandType, INSTRUCTION_LIST, OperandSize,
+    AddRegRule, ImmRule, Instruction, OperandSize, OperandType, INSTRUCTION_LIST,
 };
 use crate::register::Register;
+use std::cmp::max;
 use std::mem::transmute;
 use util::functions::stoi;
 use util::svec::SVec;
-use std::cmp::max;
 
 /// Assembly line information
 #[derive(Clone, Copy, Debug)]
@@ -113,65 +113,24 @@ impl<'a> Line<'a> {
             None
         }
     }
-
-    fn imm_operand_helper(self, operand_type: OperandType) -> Option<i128> {
-        stoi(self.get_operand_by_type(operand_type)?)
-    }
-
-    /// Get imm8 operand
-    pub fn imm8_operand(self) -> Option<u8> {
-        let value = self.imm_operand_helper(OperandType::Imm8)?;
-        if i8::MIN as i128 <= value && value < 0 {
-            Some(unsafe { transmute::<i8, u8>(value as i8) })
-        } else if value <= u8::MAX as i128 {
-            Some(value as u8)
-        } else {
-            None
-        }
-    }
-
-    /// Get imm16 operand
-    pub fn imm16_operand(self) -> Option<u16> {
-        let value = self.imm_operand_helper(OperandType::Imm16)?;
-        if i16::MIN as i128 <= value && value < 0 {
-            Some(unsafe { transmute::<i16, u16>(value as i16) })
-        } else if value <= u16::MAX as i128 {
-            Some(value as u16)
-        } else {
-            None
-        }
-    }
-
-    /// Get imm32 operand
-    pub fn imm32_operand(self) -> Option<u32> {
-        let value = self.imm_operand_helper(OperandType::Imm32)?;
-        if i32::MIN as i128 <= value && value < 0 {
-            Some(unsafe { transmute::<i32, u32>(value as i32) })
-        } else if value <= u32::MAX as i128 {
-            Some(value as u32)
-        } else {
-            None
-        }
-    }
-
-    /// Get imm64 operand
-    pub fn imm64_operand(self) -> Option<u64> {
-        let value = self.imm_operand_helper(OperandType::Imm64)?;
-        if i64::MIN as i128 <= value && value < 0 {
-            Some(unsafe { transmute::<i64, u64>(value as i64) })
-        } else if value <= u64::MAX as i128 {
-            Some(value as u64)
-        } else {
-            None
-        }
-    }
 }
 
 // Encode
 impl<'a> Line<'a> {
+    /// Get raw machine code
+    pub fn machine_code(self) -> SVec<13, u8> {
+        let mut svec = SVec::new();
+        svec += self.legacy_prefix();
+        svec += self.rex_prefix();
+        svec += self.opecode();
+        // coding ...
+        svec += self.imm();
+        svec
+    }
+
     /// Get opecode in raw machine code
-    pub fn opecode(self) -> Option<SVec<3, u8>> {
-        let instruction = self.get_instruction()?;
+    pub fn opecode(self) -> SVec<3, u8> {
+        let instruction = self.get_instruction().expect("invalid operation");
         let mut opecode = instruction.encoding().opecode();
 
         let opecode_len = opecode.len();
@@ -181,11 +140,7 @@ impl<'a> Line<'a> {
             .expect("unknown error")
             .1;
 
-        Some(opecode)
-    }
-
-    fn opecode_len(self) -> Option<usize> {
-        Some(self.opecode()?.len())
+        opecode
     }
 
     fn addreg_regcode(self) -> Option<(Option<bool>, u8)> {
@@ -201,13 +156,6 @@ impl<'a> Line<'a> {
         }
     }
 
-    fn imm_rule(self) -> Option<ImmRule> {
-        self.get_instruction()
-            .expect("invalid operation")
-            .encoding()
-            .imm_rule()
-    }
-
     fn rex_prefix_is_required(self) -> bool {
         let instruction = self.get_instruction().expect("invalid operation");
         let encoding = instruction.encoding();
@@ -216,7 +164,7 @@ impl<'a> Line<'a> {
 
         if let Some(operand_size) = self.operand_size() {
             default_operand_size < operand_size
-        }else {
+        } else {
             false
         }
     }
@@ -224,7 +172,7 @@ impl<'a> Line<'a> {
     fn prefix_x66_is_required(self) -> bool {
         if let Some(operand_size) = self.operand_size() {
             operand_size == OperandSize::Ob
-        }else {
+        } else {
             false
         }
     }
@@ -233,44 +181,80 @@ impl<'a> Line<'a> {
         let instruction = self.get_instruction().expect("invalid operation");
         let expression = instruction.expression();
         let operands_types = expression.operands();
-        max(operands_types[0].map(OperandType::size), operands_types[1].map(OperandType::size))
+        max(
+            operands_types[0].map(OperandType::size),
+            operands_types[1].map(OperandType::size),
+        )
+    }
+
+    /// Get legacy prefix in raw machine code
+    pub fn legacy_prefix(self) -> SVec<1, u8> {
+        let mut svec = SVec::new();
+        if self.prefix_x66_is_required() {
+            svec.push(0x66);
+        }
+        svec
     }
 
     /// Get rex prefix in raw machine code
-    pub fn rex_prefix(self) -> Option<u8> {
+    pub fn rex_prefix(self) -> SVec<1, u8> {
         let mut rex_w = false;
         let mut rex_r = false;
         let rex_x = false;
         let rex_b = false;
 
-        rex_w = if self.rex_prefix_is_required() { true }else { false };
+        rex_w = if self.rex_prefix_is_required() {
+            true
+        } else {
+            false
+        };
         if let Some((Some(true), _)) = self.addreg_regcode() {
             rex_r = true;
         }
 
         // coding ...
 
-        if rex_w || !(rex_r || rex_x || rex_b) {
-            let mut rex_prefix = 0x40;
-            if rex_w { rex_prefix |= 0x08; }
-            if rex_r { rex_prefix |= 0x04; }
-            if rex_x { rex_prefix |= 0x02; }
-            if rex_b { rex_prefix |= 0x01; }
-            Some(rex_prefix)
-        }else {
-            None
+        let mut rex_prefix = SVec::new();
+
+        if rex_w || rex_r || rex_x || rex_b {
+            rex_prefix.push(0x40);
+            if rex_w {
+                rex_prefix[0] |= 0x08;
+            }
+            if rex_r {
+                rex_prefix[0] |= 0x04;
+            }
+            if rex_x {
+                rex_prefix[0] |= 0x02;
+            }
+            if rex_b {
+                rex_prefix[0] |= 0x01;
+            }
+            rex_prefix
+        } else {
+            rex_prefix
         }
     }
 
-    fn rex_prefix_exist(self) -> bool {
-        self.rex_prefix().is_some()
-    }
-
     /// Get Imm in raw machine code
-    pub fn imm(self) -> Option<SVec<8, u8>> {
-        match self.imm_rule() {
-            None => None,
-            _ => todo!(),
+    pub fn imm(self) -> SVec<8, u8> {
+        let imm_rule = self
+            .get_instruction()
+            .expect("invalid operation")
+            .encoding()
+            .imm_rule();
+        match imm_rule {
+            None => SVec::new(),
+            Some(i) => {
+                let operand_type = i.operand_type();
+                let value = stoi(
+                    self.get_operand_by_type(operand_type)
+                        .expect("invalid operation"),
+                )
+                .expect("invalid operation");
+                let value = unsafe { transmute::<i128, u128>(value) };
+                SVec::from_value(value, operand_type.size().value())
+            }
         }
     }
 }
