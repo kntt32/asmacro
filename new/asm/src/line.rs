@@ -1,5 +1,5 @@
 use crate::instruction::{
-    AddRegRule, ImmRule, Instruction, OperandSize, OperandType, INSTRUCTION_LIST,
+    AddRegRule, Instruction, OperandSize, OperandType, INSTRUCTION_LIST, ModRmRule
 };
 use crate::register::Register;
 use std::cmp::max;
@@ -156,6 +156,27 @@ impl<'a> Line<'a> {
         }
     }
 
+    fn modrm_register_regcode(self) -> Option<(Option<bool>, u8)> {
+        let instruction = self.get_instruction().expect("invalid operation");
+        let encoding = instruction.encoding();
+
+        match encoding.modrm_rule() {
+            None => None,
+            Some(ModRmRule::R) => {
+                let register = self.r8_operand().or_else(|| self.r16_operand()).or_else(|| self.r32_operand()).or_else(|| self.r64_operand()).expect("unknown error");
+                Some(register.to_regcode8().or(register.to_regcode16()).or(register.to_regcode32()).or(register.to_regcode64()).expect("unknown error"))
+            }
+            Some(ModRmRule::Dight(i)) => Some((Some(false), i)),
+        }
+    }
+
+    fn modrm_base_regcode(self) -> Option<(Option<bool>, u8)> {
+        let instruction = self.get_instruction().expect("invalid operation");
+        let encoding = instruction.encoding();
+        
+        todo!()
+    }
+
     fn rex_prefix_is_required(self) -> bool {
         let instruction = self.get_instruction().expect("invalid operation");
         let encoding = instruction.encoding();
@@ -208,7 +229,14 @@ impl<'a> Line<'a> {
         } else {
             false
         };
-        if let Some((Some(true), _)) = self.addreg_regcode() {
+
+        let addreg_regcode = self.addreg_regcode();
+        let modrm_register_regcode = self.modrm_register_regcode();
+
+        if let Some((Some(true), _)) = addreg_regcode {
+            rex_r = true;
+        }
+        if let Some((Some(true), _)) = modrm_register_regcode {
             rex_r = true;
         }
 
@@ -217,6 +245,13 @@ impl<'a> Line<'a> {
         let mut rex_prefix = SVec::new();
 
         if rex_w || rex_r || rex_x || rex_b {
+            if let Some((None, _)) = addreg_regcode {
+                panic!("unknown error");
+            }
+            if let Some((None, _)) = modrm_register_regcode {
+                panic!("unknown error");
+            }
+
             rex_prefix.push(0x40);
             if rex_w {
                 rex_prefix[0] |= 0x08;

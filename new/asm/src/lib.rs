@@ -9,3 +9,7 @@ pub mod instruction;
 
 /// Types of registers
 pub mod register;
+
+/// Functions
+pub mod functions;
+
