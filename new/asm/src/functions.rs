@@ -1,7 +1,6 @@
 use crate::register::Register;
-use util::functions::stoi;
 use util::functions::result_to_option;
-
+use util::functions::stoi;
 
 pub fn parse_rm(mut expr: &str) -> Option<(i64, Register, Option<(Register, u8)>)> {
     let disp: i64 = if !expr.starts_with('[') {

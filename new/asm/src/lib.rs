@@ -12,4 +12,3 @@ pub mod register;
 
 /// Functions
 pub mod functions;
-

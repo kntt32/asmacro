@@ -1,10 +1,10 @@
+use crate::functions::parse_rm;
 use crate::line::Line;
 use crate::register::Register;
 pub use instruction_database::INSTRUCTION_LIST;
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use util::functions::{result_to_option, stoi};
 use util::svec::SVec;
-use crate::functions::parse_rm;
 
 mod instruction_database;
 

@@ -1,5 +1,5 @@
 use crate::instruction::{
-    AddRegRule, Instruction, OperandSize, OperandType, INSTRUCTION_LIST, ModRmRule
+    AddRegRule, Instruction, ModRmRule, OperandSize, OperandType, INSTRUCTION_LIST,
 };
 use crate::register::Register;
 use std::cmp::max;
@@ -163,8 +163,20 @@ impl<'a> Line<'a> {
         match encoding.modrm_rule() {
             None => None,
             Some(ModRmRule::R) => {
-                let register = self.r8_operand().or_else(|| self.r16_operand()).or_else(|| self.r32_operand()).or_else(|| self.r64_operand()).expect("unknown error");
-                Some(register.to_regcode8().or(register.to_regcode16()).or(register.to_regcode32()).or(register.to_regcode64()).expect("unknown error"))
+                let register = self
+                    .r8_operand()
+                    .or_else(|| self.r16_operand())
+                    .or_else(|| self.r32_operand())
+                    .or_else(|| self.r64_operand())
+                    .expect("unknown error");
+                Some(
+                    register
+                        .to_regcode8()
+                        .or(register.to_regcode16())
+                        .or(register.to_regcode32())
+                        .or(register.to_regcode64())
+                        .expect("unknown error"),
+                )
             }
             Some(ModRmRule::Dight(i)) => Some((Some(false), i)),
         }
@@ -173,7 +185,7 @@ impl<'a> Line<'a> {
     fn modrm_base_regcode(self) -> Option<(Option<bool>, u8)> {
         let instruction = self.get_instruction().expect("invalid operation");
         let encoding = instruction.encoding();
-        
+
         todo!()
     }
 
