@@ -227,6 +227,14 @@ impl Register {
             _ => None,
         }
     }
+
+    pub fn to_regcode(self) -> (Option<bool>, u8) {
+        self.to_regcode8()
+            .or(self.to_regcode16())
+            .or(self.to_regcode32())
+            .or(self.to_regcode64())
+            .expect("internal error")
+    }
     /*
     /// Get 64bit register code
     pub fn to_regcode64(self) -> Result<u8, ()> {

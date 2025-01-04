@@ -2,11 +2,11 @@ use crate::register::Register;
 use util::functions::result_to_option;
 use util::functions::stoi;
 
-pub fn parse_rm(mut expr: &str) -> Option<(i64, Register, Option<(Register, u8)>)> {
-    let disp: i64 = if !expr.starts_with('[') {
+pub fn parse_rm(mut expr: &str) -> Option<(i32, Register, Option<(Register, u8)>)> {
+    let disp: i32 = if !expr.starts_with('[') {
         let value = stoi(expr.split_once('[')?.0)?;
-        if i64::MIN as i128 <= value && value <= i64::MAX as i128 {
-            value as i64
+        if i32::MIN as i128 <= value && value <= i32::MAX as i128 {
+            value as i32
         } else {
             return None;
         }

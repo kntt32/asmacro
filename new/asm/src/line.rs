@@ -1,3 +1,4 @@
+use crate::functions::parse_rm;
 use crate::instruction::{
     AddRegRule, Instruction, ModRmRule, OperandSize, OperandType, INSTRUCTION_LIST,
 };
@@ -6,6 +7,9 @@ use std::cmp::max;
 use std::mem::transmute;
 use util::functions::stoi;
 use util::svec::SVec;
+
+pub use encode::*;
+pub mod encode;
 
 /// Assembly line information
 #[derive(Clone, Copy, Debug)]
@@ -182,13 +186,63 @@ impl<'a> Line<'a> {
         }
     }
 
-    fn modrm_base_regcode(self) -> Option<(Option<bool>, u8)> {
-        let instruction = self.get_instruction().expect("invalid operation");
-        let encoding = instruction.encoding();
+    fn modrm_parse_rm(self) -> (i32, Register, Option<(Register, u8)>) {
+        let operand: &str = self
+            .get_operand_by_type(OperandType::Rm8)
+            .or_else(|| self.get_operand_by_type(OperandType::Rm16))
+            .or_else(|| self.get_operand_by_type(OperandType::Rm32))
+            .or_else(|| self.get_operand_by_type(OperandType::Rm32))
+            .expect("invalid operation");
 
-        todo!()
+        parse_rm(operand).expect("invalid operation")
     }
 
+    fn modrm_base_regcode(self) -> (Option<bool>, u8) {
+        let (_, base, _) = self.modrm_parse_rm();
+        base.to_regcode()
+    }
+
+    fn modrm_index_regcode(self) -> Option<(Option<bool>, u8)> {
+        if let (_, _, Some((index, _))) = self.modrm_parse_rm() {
+            Some(index.to_regcode())
+        } else {
+            None
+        }
+    }
+
+    fn modrm_scale(self) -> Option<u8> {
+        if let (_, _, Some((_, scale))) = self.modrm_parse_rm() {
+            Some(scale)
+        } else {
+            None
+        }
+    }
+
+    fn modrm_disp(self) -> i32 {
+        let (disp, _, _) = self.modrm_parse_rm();
+        disp
+    }
+    /*
+        fn modrm_mode(self) -> ModRmMode {
+
+        }
+    */
+    /*
+        pub fn modrm(self) -> SVec<1, u8> {
+            let instruction = self.get_instruction().expect("invalid operation");
+            let encoding = instruction.encoding();
+            match encoding.modrm_rule() {
+                None => SVec::new(),
+                Some(ModRmRule::R) | Some(ModRmRule::Dight(_)) => {
+                    let modrm =
+                },
+            }
+        }
+
+        pub fn sib(self) -> SVec<1, u8> {
+
+        }
+    */
     fn rex_prefix_is_required(self) -> bool {
         let instruction = self.get_instruction().expect("invalid operation");
         let encoding = instruction.encoding();
