@@ -1,5 +1,8 @@
-use crate::instruction::{Instruction, OperandType, INSTRUCTION_LIST};
-use crate::register::Register;
+use crate::{
+    instruction::{Instruction, OperandType, INSTRUCTION_LIST},
+    register::Register,
+};
+use util::functions::result_to_option;
 
 /// Methods related to machine code encoding
 pub mod encode;
@@ -63,51 +66,16 @@ impl<'a> Line<'a> {
         self.operands()?[operand_index]
     }
 
-    fn reg_operand_helper(self, operand_type: OperandType) -> Option<Register> {
-        if let Ok(r) = self.get_operand_by_type(operand_type)?.parse::<Register>() {
-            Some(r)
-        } else {
-            None
-        }
-    }
-
-    /// Get r8 operand
-    pub fn r8_operand(self) -> Option<Register> {
-        let register = self.reg_operand_helper(OperandType::R8)?;
-        if register.is_8bit() {
-            Some(register)
-        } else {
-            None
-        }
-    }
-
-    /// Get r16 operand
-    pub fn r16_operand(self) -> Option<Register> {
-        let register = self.reg_operand_helper(OperandType::R16)?;
-        if register.is_16bit() {
-            Some(register)
-        } else {
-            None
-        }
-    }
-
-    /// Get r32 operand
-    pub fn r32_operand(self) -> Option<Register> {
-        let register = self.reg_operand_helper(OperandType::R32)?;
-        if register.is_32bit() {
-            Some(register)
-        } else {
-            None
-        }
-    }
-
-    /// Get r64 operand
-    pub fn r64_operand(self) -> Option<Register> {
-        let register = self.reg_operand_helper(OperandType::R64)?;
-        if register.is_64bit() {
-            Some(register)
-        } else {
-            None
-        }
+    /// Get register operand
+    pub fn register_operand(self) -> Option<Register> {
+        let expression: &str = self
+            .get_operand_by_type(OperandType::R8)
+            .or_else(|| self.get_operand_by_type(OperandType::R16))
+            .or_else(|| {
+                self.get_operand_by_type(OperandType::R32)
+                    .or_else(|| self.get_operand_by_type(OperandType::R64))
+            })
+            .expect("invalid operation");
+        result_to_option(expression.parse())
     }
 }

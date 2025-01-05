@@ -19,7 +19,7 @@ const PUSH_R64: Instruction = Instruction {
         opecode: SVec::from_raw([0x50, 0x00, 0x00], 1),
         modrm: None,
         imm: None,
-        addreg: Some(AddRegRule::Rq),
+        opecode_register: Some(OpecodeRegisterRule::Rq),
         default_operand_size: OperandSize::Oq,
     },
     expression: Expression {
@@ -34,7 +34,7 @@ const PUSH_RM64: Instruction = Instruction {
         opecode: SVec::from_raw([0xff, 0x00, 0x00], 1),
         modrm: Some(ModRmRule::Dight(6)),
         imm: None,
-        addreg: None,
+        opecode_register: None,
         default_operand_size: OperandSize::Oq,
     },
     expression: Expression {
@@ -49,7 +49,7 @@ const PUSH_IMM64: Instruction = Instruction {
         opecode: SVec::from_raw([0x68, 0x00, 0x00], 1),
         modrm: None,
         imm: Some(ImmRule::Id),
-        addreg: None,
+        opecode_register: None,
         default_operand_size: OperandSize::Oq,
     },
     expression: Expression {
@@ -64,7 +64,7 @@ const MOV_RM64_R64: Instruction = Instruction {
         opecode: SVec::from_raw([0x89, 0x00, 0x00], 1),
         modrm: Some(ModRmRule::R),
         imm: None,
-        addreg: None,
+        opecode_register: None,
         default_operand_size: OperandSize::Od,
     },
     expression: Expression {
@@ -79,7 +79,7 @@ const MOV_R64_IMM64: Instruction = Instruction {
         opecode: SVec::from_raw([0xb8, 0x00, 0x00], 1),
         modrm: None,
         imm: Some(ImmRule::Iq),
-        addreg: Some(AddRegRule::Rq),
+        opecode_register: Some(OpecodeRegisterRule::Rq),
         default_operand_size: OperandSize::Od,
     },
     expression: Expression {
@@ -94,7 +94,7 @@ const MOV_RM64_IMM32: Instruction = Instruction {
         opecode: SVec::from_raw([0xc7, 0x00, 0x00], 1),
         modrm: Some(ModRmRule::Dight(0)),
         imm: Some(ImmRule::Id),
-        addreg: None,
+        opecode_register: None,
         default_operand_size: OperandSize::Od,
     },
     expression: Expression {
@@ -109,7 +109,7 @@ const MOV_R32_IMM32: Instruction = Instruction {
         opecode: SVec::from_raw([0xb8, 0x00, 0x00], 1),
         modrm: None,
         imm: Some(ImmRule::Id),
-        addreg: Some(AddRegRule::Rd),
+        opecode_register: Some(OpecodeRegisterRule::Rd),
         default_operand_size: OperandSize::Od,
     },
     expression: Expression {
@@ -124,7 +124,7 @@ const POP_R64: Instruction = Instruction {
         opecode: SVec::from_raw([0x58, 0x00, 0x00], 1),
         modrm: None,
         imm: None,
-        addreg: Some(AddRegRule::Rq),
+        opecode_register: Some(OpecodeRegisterRule::Rq),
         default_operand_size: OperandSize::Oq,
     },
     expression: Expression {
@@ -139,7 +139,7 @@ const NEAR_RET: Instruction = Instruction {
         opecode: SVec::from_raw([0xc3, 0x00, 0x00], 1),
         modrm: None,
         imm: None,
-        addreg: None,
+        opecode_register: None,
         default_operand_size: OperandSize::Oq,
     },
     expression: Expression {

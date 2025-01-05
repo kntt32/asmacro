@@ -1,11 +1,11 @@
 use super::Line;
-use crate::functions::parse_rm;
-use crate::instruction::{AddRegRule, ModRmRule, OperandSize, OperandType};
-use crate::register::Register;
-use std::cmp::max;
-use std::mem::transmute;
-use util::functions::stoi;
-use util::svec::SVec;
+use crate::{
+    functions::parse_rm,
+    instruction::{ModRmRule, OperandSize, OperandType},
+    register::{Register, RegisterCode},
+};
+use std::{cmp::max, mem::transmute};
+use util::{functions::stoi, svec::SVec};
 
 impl<'a> Line<'a> {
     /// Get raw machine code
@@ -26,7 +26,7 @@ impl<'a> Line<'a> {
 
         let opecode_len = opecode.len();
         opecode[opecode_len - 1] += self
-            .addreg_regcode()
+            .opecode_register_code()
             .or(Some((None, 0)))
             .expect("unknown error")
             .1;
@@ -34,16 +34,17 @@ impl<'a> Line<'a> {
         opecode
     }
 
-    fn addreg_regcode(self) -> Option<(Option<bool>, u8)> {
+    fn opecode_register_code(self) -> Option<RegisterCode> {
         let instruction = self.get_instruction().expect("invalid operation");
-        let addreg_rule = instruction.encoding().addreg_rule();
+        let opecode_register_rule = instruction.encoding().opecode_register_rule();
 
-        match addreg_rule {
+        match opecode_register_rule {
+            Some(_) => Some(
+                self.register_operand()
+                    .expect("invalid operation")
+                    .register_code_for_addreg(),
+            ),
             None => None,
-            Some(AddRegRule::Rb) => self.r8_operand()?.to_regcode8(),
-            Some(AddRegRule::Rw) => self.r16_operand()?.to_regcode16(),
-            Some(AddRegRule::Rd) => self.r32_operand()?.to_regcode32(),
-            Some(AddRegRule::Rq) => self.r64_operand()?.to_regcode64(),
         }
     }
 
@@ -54,7 +55,8 @@ impl<'a> Line<'a> {
         match encoding.modrm_rule() {
             None => None,
             Some(ModRmRule::R) => {
-                let register = self
+                todo!();
+                /*let register = self
                     .r8_operand()
                     .or_else(|| self.r16_operand())
                     .or_else(|| self.r32_operand())
@@ -67,7 +69,7 @@ impl<'a> Line<'a> {
                         .or(register.to_regcode32())
                         .or(register.to_regcode64())
                         .expect("unknown error"),
-                )
+                )*/
             }
             Some(ModRmRule::Dight(i)) => Some((Some(false), i)),
         }
@@ -183,10 +185,10 @@ impl<'a> Line<'a> {
             false
         };
 
-        let addreg_regcode = self.addreg_regcode();
+        let opecode_register_code = self.opecode_register_code();
         let modrm_register_regcode = self.modrm_register_regcode();
 
-        if let Some((Some(true), _)) = addreg_regcode {
+        if let Some((Some(true), _)) = opecode_register_code {
             rex_r = true;
         }
         if let Some((Some(true), _)) = modrm_register_regcode {
@@ -198,7 +200,7 @@ impl<'a> Line<'a> {
         let mut rex_prefix = SVec::new();
 
         if rex_w || rex_r || rex_x || rex_b {
-            if let Some((None, _)) = addreg_regcode {
+            if let Some((None, _)) = opecode_register_code {
                 panic!("unknown error");
             }
             if let Some((None, _)) = modrm_register_regcode {

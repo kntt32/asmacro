@@ -1,5 +1,5 @@
 use asm::parser::Parser;
-use util::svec::SVec;
+
 fn main() {
     /*
         let source = "

@@ -1,11 +1,8 @@
-use crate::functions::parse_rm;
-use crate::line::Line;
-use crate::register::Register;
-pub use instruction_database::INSTRUCTION_LIST;
+use crate::{functions::parse_rm, line::Line, register::Register};
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
-use util::functions::stoi;
-use util::svec::SVec;
+use util::{functions::stoi, svec::SVec};
 
+pub use instruction_database::INSTRUCTION_LIST;
 mod instruction_database;
 
 /// Instruction properties
@@ -48,7 +45,7 @@ pub struct EncodingRule {
     opecode: SVec<3, u8>,
     modrm: Option<ModRmRule>,
     imm: Option<ImmRule>,
-    addreg: Option<AddRegRule>,
+    opecode_register: Option<OpecodeRegisterRule>,
     default_operand_size: OperandSize,
 }
 
@@ -58,9 +55,9 @@ impl EncodingRule {
         self.opecode
     }
 
-    /// Get addreg rule
-    pub fn addreg_rule(&self) -> Option<AddRegRule> {
-        self.addreg
+    /// Get opecode register rule
+    pub fn opecode_register_rule(&self) -> Option<OpecodeRegisterRule> {
+        self.opecode_register
     }
 
     /// Get modrm rule
@@ -145,7 +142,7 @@ impl ImmRule {
 
 /// Encoding rule of register embed in opecode
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum AddRegRule {
+pub enum OpecodeRegisterRule {
     Rb,
     Rw,
     Rd,
@@ -290,23 +287,30 @@ fn register_match_with(expr: &str, p: fn(Register) -> bool) -> bool {
     }
 }
 
-fn rm_match_with(expr: &str, p: fn(Register) -> bool, min: i128, max: i128) -> bool {
-    if register_match_with(expr, p) {
+fn rm_match_with(
+    expr: &str,
+    reg_matching: fn(Register) -> bool,
+    disp_min: i128,
+    disp_max: i128,
+) -> bool {
+    const fn is_valid_scale(scale: u8) -> bool {
+        scale == 1 || scale == 2 || scale == 4 || scale == 8
+    }
+
+    if register_match_with(expr, reg_matching) {
         true
     } else {
-        // disp[base, index, scale]
-        let Some(parse_rm) = parse_rm(expr.trim()) else {
-            return false;
-        };
-
-        let base_match_with = p(parse_rm.1);
-        let index_match_with = if let Some((i, _)) = parse_rm.2 {
-            p(i)
-        } else {
-            true
-        };
-        let disp_match_with = min <= parse_rm.0 as i128 && parse_rm.0 as i128 <= max;
-
-        base_match_with && index_match_with && disp_match_with
+        match parse_rm(expr.trim()) {
+            Some((disp, base, optional_index)) => {
+                let base_match = reg_matching(base) || base == Register::Rip;
+                let index_match = match optional_index {
+                    Some((index, scale)) => reg_matching(index) && is_valid_scale(scale),
+                    None => true,
+                };
+                let disp_match = disp_min <= disp as i128 && disp as i128 <= disp_max;
+                base_match && index_match && disp_match
+            }
+            None => false,
+        }
     }
 }

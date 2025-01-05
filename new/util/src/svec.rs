@@ -1,9 +1,11 @@
-use std::cmp::PartialEq;
-use std::convert::From;
-use std::fmt::{Binary, Display, Error, Formatter, LowerHex};
-use std::iter::{IntoIterator, Iterator};
-use std::mem::size_of;
-use std::ops::{Add, AddAssign, Deref, DerefMut};
+use std::{
+    cmp::PartialEq,
+    convert::From,
+    fmt::{Binary, Display, Error, Formatter, LowerHex},
+    iter::{IntoIterator, Iterator},
+    mem::size_of,
+    ops::{Add, AddAssign, Deref, DerefMut},
+};
 
 /// SVec is a vector collection type using only stack.
 /// # Feature

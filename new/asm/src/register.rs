@@ -3,6 +3,8 @@ use std::str::FromStr;
 /// Enum for Register
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Register {
+    Rip,
+
     Rax,
     Rcx,
     Rdx,
@@ -19,7 +21,6 @@ pub enum Register {
     R13,
     R14,
     R15,
-    Rip,
 
     Eax,
     Ecx,
@@ -77,11 +78,14 @@ pub enum Register {
     R15l,
 }
 
+/// Type of register code
+pub type RegisterCode = (Option<bool>, u8);
+
 impl Register {
     /// If this register is 64bit
     pub fn is_64bit(self) -> bool {
         const RAX_USIZE: usize = Register::Rax as usize;
-        const RIP_USIZE: usize = Register::Rip as usize;
+        const RIP_USIZE: usize = Register::R15 as usize;
 
         let self_usize = self as usize;
 
@@ -235,37 +239,84 @@ impl Register {
             .or(self.to_regcode64())
             .expect("internal error")
     }
-    /*
-    /// Get 64bit register code
-    pub fn to_regcode64(self) -> Result<u8, ()> {
-        if self.is_64bit() {
-            if self != Self::Rip {
-                Ok((self as usize - Self::Rax as usize) as u8)
-            } else {
-                Err(())
-            }
-        } else {
-            Err(())
+
+    pub fn register_code_for_addreg(self) -> RegisterCode {
+        match self {
+            Self::Al => (Some(false), 0),
+            Self::Cl => (Some(false), 1),
+            Self::Dl => (Some(false), 2),
+            Self::Bl => (Some(false), 3),
+            Self::Ah => (None, 4),
+            Self::Ch => (None, 5),
+            Self::Dh => (None, 6),
+            Self::Bh => (None, 7),
+            Self::Spl => (Some(false), 4),
+            Self::Bpl => (Some(false), 5),
+            Self::Sil => (Some(false), 6),
+            Self::Dil => (Some(false), 7),
+            Self::R8l => (Some(true), 0),
+            Self::R9l => (Some(true), 1),
+            Self::R10l => (Some(true), 2),
+            Self::R11l => (Some(true), 3),
+            Self::R12l => (Some(true), 4),
+            Self::R13l => (Some(true), 5),
+            Self::R14l => (Some(true), 6),
+            Self::R15l => (Some(true), 7),
+
+            Self::Ax => (Some(false), 0),
+            Self::Cx => (Some(false), 1),
+            Self::Dx => (Some(false), 2),
+            Self::Bx => (Some(false), 3),
+            Self::Sp => (Some(false), 4),
+            Self::Bp => (Some(false), 5),
+            Self::Si => (Some(false), 6),
+            Self::Di => (Some(false), 7),
+            Self::R8w => (Some(true), 0),
+            Self::R9w => (Some(true), 1),
+            Self::R10w => (Some(true), 2),
+            Self::R11w => (Some(true), 3),
+            Self::R12w => (Some(true), 4),
+            Self::R13w => (Some(true), 5),
+            Self::R14w => (Some(true), 6),
+            Self::R15w => (Some(true), 7),
+
+            Self::Eax => (Some(false), 0),
+            Self::Ecx => (Some(false), 1),
+            Self::Edx => (Some(false), 2),
+            Self::Ebx => (Some(false), 3),
+            Self::Esp => (Some(false), 4),
+            Self::Ebp => (Some(false), 5),
+            Self::Esi => (Some(false), 6),
+            Self::Edi => (Some(false), 7),
+            Self::R8d => (Some(true), 0),
+            Self::R9d => (Some(true), 1),
+            Self::R10d => (Some(true), 2),
+            Self::R11d => (Some(true), 3),
+            Self::R12d => (Some(true), 4),
+            Self::R13d => (Some(true), 5),
+            Self::R14d => (Some(true), 6),
+            Self::R15d => (Some(true), 7),
+
+            Self::Rax => (Some(false), 0),
+            Self::Rcx => (Some(false), 1),
+            Self::Rdx => (Some(false), 2),
+            Self::Rbx => (Some(false), 3),
+            Self::Rsp => (Some(false), 4),
+            Self::Rbp => (Some(false), 5),
+            Self::Rsi => (Some(false), 6),
+            Self::Rdi => (Some(false), 7),
+            Self::R8 => (Some(true), 0),
+            Self::R9 => (Some(true), 1),
+            Self::R10 => (Some(true), 2),
+            Self::R11 => (Some(true), 3),
+            Self::R12 => (Some(true), 4),
+            Self::R13 => (Some(true), 5),
+            Self::R14 => (Some(true), 6),
+            Self::R15 => (Some(true), 7),
+
+            Self::Rip => todo!("Register::Rip doesn't have register code for addreg"),
         }
     }
-
-    pub fn to_regcode(self) -> Result<u8, ()> {
-        if self.is_64bit() {
-            if self == Self::Rip {
-                Err(())
-            } else {
-                Ok(self as usize as u8)
-            }
-        } else if self.is_32bit() {
-            Ok((self as usize - Self::Eax as usize) as u8)
-        } else if self.is_16bit() {
-            Ok((self as usize - Self::Ax as usize) as u8)
-        } else if self.is_8bit() {
-            Ok((self as usize - Self::Al as usize) as u8)
-        } else {
-            Err(())
-        }
-    }*/
 }
 
 impl FromStr for Register {

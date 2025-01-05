@@ -1,7 +1,9 @@
 use core::mem::transmute;
 use mem_exec::mem_executable;
-use std::alloc::{alloc, dealloc, Layout};
-use std::ops::Drop;
+use std::{
+    alloc::{alloc, dealloc, Layout},
+    ops::Drop,
+};
 
 mod mem_exec;
 

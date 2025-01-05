@@ -1,6 +1,5 @@
 use crate::line::Line;
-use std::iter::Iterator;
-use std::str::Lines;
+use std::{iter::Iterator, str::Lines};
 
 /// Simple parser for assembly
 /// # Usage
