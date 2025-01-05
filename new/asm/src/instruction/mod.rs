@@ -3,7 +3,7 @@ use crate::line::Line;
 use crate::register::Register;
 pub use instruction_database::INSTRUCTION_LIST;
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
-use util::functions::{result_to_option, stoi};
+use util::functions::stoi;
 use util::svec::SVec;
 
 mod instruction_database;
