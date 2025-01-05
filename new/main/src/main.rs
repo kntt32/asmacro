@@ -1,8 +1,7 @@
 use asm::parser::Parser;
 
 fn main() {
-    /*
-        let source = "
+    let source = "
     .text
     main:
         push rbp
@@ -16,16 +15,16 @@ fn main() {
         pop rbp
         ret";
 
-        let parser = Parser::new(source);
+    let parser = Parser::new(source);
 
-        for line in parser {
-            if let Some(n) = line.get_instruction() {
-                println!("{:?}", n.mnemonic());
-            } else {
-                println!("");
-            }
+    for line in parser {
+        if let Some(n) = line.get_instruction() {
+            println!("{:?}", n.mnemonic());
+        } else {
+            println!("");
         }
-    */
+    }
+
     //bf 02 00 00 00       	mov    $0x2,%edi
     let code = "mov edi 0x2";
     let parser = Parser::new(code);

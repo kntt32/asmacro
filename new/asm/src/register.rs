@@ -240,7 +240,92 @@ impl Register {
             .expect("internal error")
     }
 
-    pub fn register_code_for_addreg(self) -> RegisterCode {
+    pub fn operand_r64(self) -> bool {
+        const RAX_USIZE: usize = Register::Rax as usize;
+        const RIP_USIZE: usize = Register::R15 as usize;
+
+        let self_usize = self as usize;
+
+        if RAX_USIZE <= self_usize && self_usize <= RIP_USIZE {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn operand_r32(self) -> bool {
+        const EAX_USIZE: usize = Register::Eax as usize;
+        const R15D_USIZE: usize = Register::R15d as usize;
+
+        let self_usize = self as usize;
+
+        if EAX_USIZE <= self_usize && self_usize <= R15D_USIZE {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn operand_r16(self) -> bool {
+        const AX_USIZE: usize = Register::Ax as usize;
+        const R15W_USIZE: usize = Register::R15w as usize;
+
+        let self_usize = self as usize;
+
+        if AX_USIZE <= self_usize && self_usize <= R15W_USIZE {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn operand_r8(self) -> bool {
+        const AL_USIZE: usize = Register::Al as usize;
+        const R15L_USIZE: usize = Register::R15l as usize;
+
+        let self_usize = self as usize;
+
+        if AL_USIZE <= self_usize && self_usize <= R15L_USIZE {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn operand_rm_ref_base8(self) -> bool {
+        self.operand_r8()
+    }
+
+    pub fn operand_rm_ref_base16(self) -> bool {
+        self.operand_r16()
+    }
+
+    pub fn operand_rm_ref_base32(self) -> bool {
+        self.operand_r32()
+    }
+
+    pub fn operand_rm_ref_base64(self) -> bool {
+        self.operand_r64() || self == Self::Rip
+    }
+
+    pub fn operand_rm_ref_index8(self) -> bool {
+        self.operand_r8()
+    }
+
+    pub fn operand_rm_ref_index16(self) -> bool {
+        self.operand_r16()
+    }
+
+    pub fn operand_rm_ref_index32(self) -> bool {
+        self.operand_r32()
+    }
+
+    pub fn operand_rm_ref_index64(self) -> bool {
+        self.operand_r64()
+    }
+
+    /// Register code for opecode register
+    pub fn register_code_for_opecode_register(self) -> RegisterCode {
         match self {
             Self::Al => (Some(false), 0),
             Self::Cl => (Some(false), 1),
@@ -317,6 +402,10 @@ impl Register {
             Self::Rip => todo!("Register::Rip doesn't have register code for addreg"),
         }
     }
+    /*
+    pub fn register_code_for_base() -> Option<RegisterCode> {
+
+    }*/
 }
 
 impl FromStr for Register {

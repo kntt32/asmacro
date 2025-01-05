@@ -42,7 +42,7 @@ impl<'a> Line<'a> {
             Some(_) => Some(
                 self.register_operand()
                     .expect("invalid operation")
-                    .register_code_for_addreg(),
+                    .register_code_for_opecode_register(),
             ),
             None => None,
         }
