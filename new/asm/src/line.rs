@@ -86,8 +86,7 @@ impl<'a> Line<'a> {
             .get_operand_by_type(OperandType::Rm8)
             .or_else(|| self.get_operand_by_type(OperandType::Rm16))
             .or_else(|| self.get_operand_by_type(OperandType::Rm32))
-            .or_else(|| self.get_operand_by_type(OperandType::Rm64))
-            .expect("invalid operation");
+            .or_else(|| self.get_operand_by_type(OperandType::Rm64))?;
 
         parse_rm(operand)
     }
