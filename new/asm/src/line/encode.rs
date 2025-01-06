@@ -1,6 +1,5 @@
 use super::Line;
 use crate::{
-    functions::parse_rm,
     instruction::{ModRmRule, OperandSize, OperandType},
     register::{Register, RegisterCode},
 };
@@ -48,59 +47,49 @@ impl<'a> Line<'a> {
         }
     }
 
-    fn modrm_register_regcode(self) -> Option<(Option<bool>, u8)> {
+    fn modrm_register_regcode(self) -> RegisterCode {
         let instruction = self.get_instruction().expect("invalid operation");
         let encoding = instruction.encoding();
 
         match encoding.modrm_rule() {
-            None => None,
+            None => panic!("modrm field doesn't exist"),
             Some(ModRmRule::R) => {
-                todo!();
-                /*let register = self
-                    .r8_operand()
-                    .or_else(|| self.r16_operand())
-                    .or_else(|| self.r32_operand())
-                    .or_else(|| self.r64_operand())
-                    .expect("unknown error");
-                Some(
-                    register
-                        .to_regcode8()
-                        .or(register.to_regcode16())
-                        .or(register.to_regcode32())
-                        .or(register.to_regcode64())
-                        .expect("unknown error"),
-                )*/
+                let register = self.register_operand().expect("invalid operation");
+                register.register_code_for_opecode_register()
             }
-            Some(ModRmRule::Dight(i)) => Some((Some(false), i)),
+            Some(ModRmRule::Dight(i)) => (Some(false), i),
         }
     }
 
-    fn modrm_parse_rm(self) -> (i32, Register, Option<(Register, u8)>) {
-        let operand: &str = self
-            .get_operand_by_type(OperandType::Rm8)
-            .or_else(|| self.get_operand_by_type(OperandType::Rm16))
-            .or_else(|| self.get_operand_by_type(OperandType::Rm32))
-            .or_else(|| self.get_operand_by_type(OperandType::Rm32))
-            .expect("invalid operation");
-
-        parse_rm(operand).expect("invalid operation")
+    fn modrm_ref_base(self) -> Option<Register> {
+        let (_, base, _) = self.rm_ref_operand()?;
+        Some(base)
     }
 
-    fn modrm_base_regcode(self) -> (Option<bool>, u8) {
-        let (_, base, _) = self.modrm_parse_rm();
-        base.to_regcode()
+    fn modrm_base_regcode(self) -> RegisterCode {
+        if let Some(r) = self.rm_register_operand() {
+            r.register_code_for_opecode_register()
+        } else {
+            self.modrm_ref_base()
+                .expect("invalid operation")
+                .register_code_for_rm_ref_base()
+        }
     }
 
-    fn modrm_index_regcode(self) -> Option<(Option<bool>, u8)> {
-        if let (_, _, Some((index, _))) = self.modrm_parse_rm() {
-            Some(index.to_regcode())
+    fn modrm_ref_index(self) -> Option<Register> {
+        if let (_, _, Some((index, _))) = self.rm_ref_operand()? {
+            Some(index)
         } else {
             None
         }
     }
 
+    fn modrm_index_regcode(self) -> Option<RegisterCode> {
+        Some(self.modrm_ref_index()?.register_code_for_rm_ref_index())
+    }
+
     fn modrm_scale(self) -> Option<u8> {
-        if let (_, _, Some((_, scale))) = self.modrm_parse_rm() {
+        if let (_, _, Some((_, scale))) = self.rm_ref_operand().expect("invalid operation") {
             Some(scale)
         } else {
             None
@@ -108,30 +97,66 @@ impl<'a> Line<'a> {
     }
 
     fn modrm_disp(self) -> i32 {
-        let (disp, _, _) = self.modrm_parse_rm();
+        let (disp, _, _) = self.rm_ref_operand().expect("invalid operation");
         disp
     }
-    /*
-        fn modrm_mode(self) -> ModRmMode {
 
-        }
-    */
-    /*
-        pub fn modrm(self) -> SVec<1, u8> {
-            let instruction = self.get_instruction().expect("invalid operation");
-            let encoding = instruction.encoding();
-            match encoding.modrm_rule() {
-                None => SVec::new(),
-                Some(ModRmRule::R) | Some(ModRmRule::Dight(_)) => {
-                    let modrm =
-                },
+    fn modrm_mode(self) -> u8 {
+        let modrm_ref_base = self.modrm_ref_base();
+        match modrm_ref_base {
+            Some(Register::Rip) => 0b00,
+            Some(r) => {
+                let modrm_disp = self.modrm_disp();
+                let disp_is_8bit = i8::MIN as i32 <= modrm_disp && modrm_disp <= i8::MAX as i32;
+                let disp_isnt_exist = modrm_disp == 0
+                    && r != Register::Rbp
+                    && r != Register::R13
+                    && !(self.sib_require() && (r == Register::Rbp || r == Register::R13));
+                if disp_isnt_exist {
+                    0b00
+                } else if disp_is_8bit {
+                    0b01
+                } else {
+                    0b10
+                }
             }
+            None => 0b11,
         }
+    }
 
-        pub fn sib(self) -> SVec<1, u8> {
+    fn modrm_exist(self) -> bool {
+        let instruction = self.get_instruction().expect("invalid operation");
+        let encoding = instruction.encoding();
+        encoding.modrm_rule().is_some()
+    }
 
+    fn sib_require(self) -> bool {
+        let modrm_ref_base = self.modrm_ref_base();
+        self.modrm_ref_index().is_some()
+            || modrm_ref_base == Some(Register::Rsp)
+            || modrm_ref_base == Some(Register::R12)
+    }
+
+    pub fn modrm(self) -> SVec<1, u8> {
+        if self.modrm_exist() {
+            let mode = self.modrm_mode();
+            let (_, reg) = self.modrm_register_regcode();
+            let base = if self.sib_require() {
+                0b100
+            } else {
+                self.modrm_base_regcode().1
+            };
+            let modrm = (mode << 6) | (reg << 3) | base;
+            SVec::from([modrm])
+        } else {
+            return SVec::new();
         }
-    */
+    }
+
+    pub fn sib(self) -> SVec<1, u8> {
+        todo!()
+    }
+
     fn rex_prefix_is_required(self) -> bool {
         let instruction = self.get_instruction().expect("invalid operation");
         let encoding = instruction.encoding();
@@ -176,26 +201,39 @@ impl<'a> Line<'a> {
     pub fn rex_prefix(self) -> SVec<1, u8> {
         let mut rex_w = false;
         let mut rex_r = false;
-        let rex_x = false;
-        let rex_b = false;
+        let mut rex_x = false;
+        let mut rex_b = false;
 
-        rex_w = if self.rex_prefix_is_required() {
-            true
-        } else {
-            false
-        };
+        if self.rex_prefix_is_required() {
+            rex_w = true;
+        }
+
+        let modrm_exist = self.modrm_exist();
 
         let opecode_register_code = self.opecode_register_code();
-        let modrm_register_regcode = self.modrm_register_regcode();
-
-        if let Some((Some(true), _)) = opecode_register_code {
-            rex_r = true;
-        }
+        let modrm_register_regcode = if modrm_exist {
+            Some(self.modrm_register_regcode())
+        } else {
+            None
+        };
         if let Some((Some(true), _)) = modrm_register_regcode {
             rex_r = true;
         }
-
-        // coding ...
+        if let Some((Some(true), _)) = opecode_register_code {
+            rex_r = true;
+        }
+        let modrm_base_regcode = if modrm_exist {
+            Some(self.modrm_base_regcode())
+        } else {
+            None
+        };
+        let modrm_index_regcode = self.modrm_index_regcode();
+        if let Some((Some(true), _)) = modrm_base_regcode {
+            rex_b = true;
+        }
+        if let Some((Some(true), _)) = modrm_index_regcode {
+            rex_x = true;
+        }
 
         let mut rex_prefix = SVec::new();
 

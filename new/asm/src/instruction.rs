@@ -229,7 +229,6 @@ impl OperandType {
     pub const fn size(self) -> OperandSize {
         match self {
             OperandType::Rel32 => OperandSize::Od,
-
             OperandType::R8 => OperandSize::Ob,
             OperandType::R16 => OperandSize::Ow,
             OperandType::R32 => OperandSize::Od,
@@ -257,35 +256,24 @@ impl OperandType {
             OperandType::Imm16 => number_match_with(expr, i16::MIN as i128, u16::MAX as i128),
             OperandType::Imm32 => number_match_with(expr, i32::MIN as i128, u32::MAX as i128),
             OperandType::Imm64 => number_match_with(expr, i64::MIN as i128, u64::MAX as i128),
-            OperandType::Rm8 => rm_match_with(
-                expr,
-                Register::operand_r8,
-                Register::operand_rm_ref_base8,
-                Register::operand_rm_ref_index8,
-                i8::MIN as i128,
-                i8::MAX as i128,
-            ),
+            OperandType::Rm8 => {
+                rm_match_with(expr, Register::operand_r8, i8::MIN as i128, i8::MAX as i128)
+            }
             OperandType::Rm16 => rm_match_with(
                 expr,
                 Register::operand_r16,
-                Register::operand_rm_ref_base16,
-                Register::operand_rm_ref_index16,
                 i16::MIN as i128,
                 i16::MAX as i128,
             ),
             OperandType::Rm32 => rm_match_with(
                 expr,
                 Register::operand_r32,
-                Register::operand_rm_ref_base32,
-                Register::operand_rm_ref_index32,
                 i32::MIN as i128,
                 i32::MAX as i128,
             ),
             OperandType::Rm64 => rm_match_with(
                 expr,
                 Register::operand_r64,
-                Register::operand_rm_ref_base64,
-                Register::operand_rm_ref_index64,
                 i64::MIN as i128,
                 i64::MAX as i128,
             ),
@@ -310,8 +298,6 @@ fn register_match_with(expr: &str, matching: impl Fn(Register) -> bool) -> bool 
 fn rm_match_with(
     expr: &str,
     base_matching: impl Fn(Register) -> bool,
-    ref_base_matching: impl Fn(Register) -> bool,
-    ref_index_matching: impl Fn(Register) -> bool,
     disp_min: i128,
     disp_max: i128,
 ) -> bool {
@@ -324,9 +310,9 @@ fn rm_match_with(
     } else {
         match parse_rm(expr.trim()) {
             Some((disp, base, optional_index)) => {
-                let base_match = ref_base_matching(base) || base == Register::Rip;
+                let base_match = base.operand_rm_ref_base() || base == Register::Rip;
                 let index_match = match optional_index {
-                    Some((index, scale)) => ref_index_matching(index) && is_valid_scale(scale),
+                    Some((index, scale)) => index.operand_rm_ref_index() && is_valid_scale(scale),
                     None => true,
                 };
                 let disp_match = disp_min <= disp as i128 && disp as i128 <= disp_max;

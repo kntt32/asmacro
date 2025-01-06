@@ -1,4 +1,5 @@
 use crate::{
+    functions::parse_rm,
     instruction::{Instruction, OperandType, INSTRUCTION_LIST},
     register::Register,
 };
@@ -77,5 +78,29 @@ impl<'a> Line<'a> {
             })
             .expect("invalid operation");
         result_to_option(expression.parse())
+    }
+
+    /// Get rm refering operand
+    pub fn rm_ref_operand(self) -> Option<(i32, Register, Option<(Register, u8)>)> {
+        let operand: &str = self
+            .get_operand_by_type(OperandType::Rm8)
+            .or_else(|| self.get_operand_by_type(OperandType::Rm16))
+            .or_else(|| self.get_operand_by_type(OperandType::Rm32))
+            .or_else(|| self.get_operand_by_type(OperandType::Rm64))
+            .expect("invalid operation");
+
+        parse_rm(operand)
+    }
+
+    /// Get rm register operand
+    pub fn rm_register_operand(self) -> Option<Register> {
+        let operand: &str = self
+            .get_operand_by_type(OperandType::Rm8)
+            .or_else(|| self.get_operand_by_type(OperandType::Rm16))
+            .or_else(|| self.get_operand_by_type(OperandType::Rm32))
+            .or_else(|| self.get_operand_by_type(OperandType::Rm64))
+            .expect("invalid operation");
+
+        result_to_option(operand.parse())
     }
 }

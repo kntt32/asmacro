@@ -292,35 +292,11 @@ impl Register {
         }
     }
 
-    pub fn operand_rm_ref_base8(self) -> bool {
-        self.operand_r8()
-    }
-
-    pub fn operand_rm_ref_base16(self) -> bool {
-        self.operand_r16()
-    }
-
-    pub fn operand_rm_ref_base32(self) -> bool {
-        self.operand_r32()
-    }
-
-    pub fn operand_rm_ref_base64(self) -> bool {
+    pub fn operand_rm_ref_base(self) -> bool {
         self.operand_r64() || self == Self::Rip
     }
 
-    pub fn operand_rm_ref_index8(self) -> bool {
-        self.operand_r8()
-    }
-
-    pub fn operand_rm_ref_index16(self) -> bool {
-        self.operand_r16()
-    }
-
-    pub fn operand_rm_ref_index32(self) -> bool {
-        self.operand_r32()
-    }
-
-    pub fn operand_rm_ref_index64(self) -> bool {
+    pub fn operand_rm_ref_index(self) -> bool {
         self.operand_r64()
     }
 
@@ -402,10 +378,22 @@ impl Register {
             Self::Rip => todo!("Register::Rip doesn't have register code for addreg"),
         }
     }
-    /*
-    pub fn register_code_for_base() -> Option<RegisterCode> {
 
-    }*/
+    pub fn register_code_for_rm_ref_base(self) -> RegisterCode {
+        if self.operand_rm_ref_base() {
+            self.register_code_for_opecode_register()
+        } else {
+            panic!("invalid input")
+        }
+    }
+
+    pub fn register_code_for_rm_ref_index(self) -> RegisterCode {
+        if self == Register::Rip {
+            panic!("invalid input")
+        } else {
+            self.register_code_for_rm_ref_base()
+        }
+    }
 }
 
 impl FromStr for Register {
