@@ -13,7 +13,9 @@ impl<'a> Line<'a> {
         svec += self.legacy_prefix();
         svec += self.rex_prefix();
         svec += self.opecode();
-        // coding ...
+        svec += self.modrm();
+        svec += self.sib();
+        svec += self.disp();
         svec += self.imm();
         svec
     }
@@ -111,7 +113,7 @@ impl<'a> Line<'a> {
                 let disp_isnt_exist = modrm_disp == 0
                     && r != Register::Rbp
                     && r != Register::R13
-                    && !(self.sib_require() && (r == Register::Rbp || r == Register::R13));
+                    && !(self.sib_exist() && (r == Register::Rbp || r == Register::R13));
                 if disp_isnt_exist {
                     0b00
                 } else if disp_is_8bit {
@@ -124,13 +126,26 @@ impl<'a> Line<'a> {
         }
     }
 
+    fn disp_len(self) -> usize {
+        if self.modrm_exist() {
+            match self.modrm_mode() {
+                0b00 | 0b11 => 0,
+                0b01 => 1,
+                0b10 => 4,
+                _ => panic!("invalid output"),
+            }
+        }else {
+            0
+        }
+    }
+
     fn modrm_exist(self) -> bool {
         let instruction = self.get_instruction().expect("invalid operation");
         let encoding = instruction.encoding();
         encoding.modrm_rule().is_some()
     }
 
-    fn sib_require(self) -> bool {
+    fn sib_exist(self) -> bool {
         let modrm_ref_base = self.modrm_ref_base();
         self.modrm_ref_index().is_some()
             || modrm_ref_base == Some(Register::Rsp)
@@ -141,7 +156,7 @@ impl<'a> Line<'a> {
         if self.modrm_exist() {
             let mode = self.modrm_mode();
             let (_, reg) = self.modrm_register_regcode();
-            let base = if self.sib_require() {
+            let base = if self.sib_exist() {
                 0b100
             } else {
                 self.modrm_base_regcode().1
@@ -154,7 +169,22 @@ impl<'a> Line<'a> {
     }
 
     pub fn sib(self) -> SVec<1, u8> {
-        todo!()
+        if self.sib_exist() {
+            let (_, base) = self.modrm_base_regcode();
+            let (_, index) = self.modrm_index_regcode().or(Some((None, 0b100))).expect("invalid operation");
+            let scale: u8 = match self.modrm_scale() {
+                Some(1) => 0b00,
+                Some(2) => 0b01,
+                Some(4) => 0b10,
+                Some(8) => 0b11,
+                _ => 0b00,
+            };
+
+            let sib = (scale << 6) | (index << 3) | base;
+            SVec::from([sib])
+        }else {
+            SVec::new()
+        }
     }
 
     fn rex_prefix_is_required(self) -> bool {
@@ -283,6 +313,18 @@ impl<'a> Line<'a> {
                 let value = unsafe { transmute::<i128, u128>(value) };
                 SVec::from_value(value, operand_type.size().value())
             }
+        }
+    }
+
+    /// Get Disp in raw machine code
+    pub fn disp(self) -> SVec<4, u8> {
+        let disp_len = self.disp_len();
+        if disp_len == 0 {
+            SVec::new()
+        }else {
+            let disp = self.modrm_disp();
+            let disp_usize = unsafe { transmute::<i128, u128>(disp as i128) };
+            SVec::from_value(disp_usize, disp_len)
         }
     }
 }

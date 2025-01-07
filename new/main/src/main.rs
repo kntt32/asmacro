@@ -25,11 +25,11 @@ fn main() {
         }
     }
 
-    //bf 02 00 00 00       	mov    $0x2,%edi
-    let code = "mov edi 0x2";
+    // 48 89 7c 24 10       	mov    %rdi,0x10(%rsp)
+    let code = "mov 0x10[rsp] rdi";
     let parser = Parser::new(code);
     for line in parser {
-        println!("{}", line.imm());
+        //println!("{:?}", line.modrm_scale());
         println!("{:x}", line.machine_code());
     }
 }
