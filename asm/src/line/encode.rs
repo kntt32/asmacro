@@ -134,7 +134,7 @@ impl<'a> Line<'a> {
                 0b10 => 4,
                 _ => panic!("invalid output"),
             }
-        }else {
+        } else {
             0
         }
     }
@@ -171,7 +171,10 @@ impl<'a> Line<'a> {
     pub fn sib(self) -> SVec<1, u8> {
         if self.sib_exist() {
             let (_, base) = self.modrm_base_regcode();
-            let (_, index) = self.modrm_index_regcode().or(Some((None, 0b100))).expect("invalid operation");
+            let (_, index) = self
+                .modrm_index_regcode()
+                .or(Some((None, 0b100)))
+                .expect("invalid operation");
             let scale: u8 = match self.modrm_scale() {
                 Some(1) => 0b00,
                 Some(2) => 0b01,
@@ -182,7 +185,7 @@ impl<'a> Line<'a> {
 
             let sib = (scale << 6) | (index << 3) | base;
             SVec::from([sib])
-        }else {
+        } else {
             SVec::new()
         }
     }
@@ -321,7 +324,7 @@ impl<'a> Line<'a> {
         let disp_len = self.disp_len();
         if disp_len == 0 {
             SVec::new()
-        }else {
+        } else {
             let disp = self.modrm_disp();
             let disp_usize = unsafe { transmute::<i128, u128>(disp as i128) };
             SVec::from_value(disp_usize, disp_len)
