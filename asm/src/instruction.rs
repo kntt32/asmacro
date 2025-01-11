@@ -209,6 +209,10 @@ impl Expression {
 /// Operand types
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum OperandType {
+    Al,
+    Ax,
+    Eax,
+    Rax,
     Rel8,
     Rel16,
     Rel32,
@@ -230,6 +234,10 @@ impl OperandType {
     /// Get operand size
     pub const fn size(self) -> OperandSize {
         match self {
+            OperandType::Al => OperandSize::Ob,
+            OperandType::Ax => OperandSize::Ow,
+            OperandType::Eax => OperandSize::Od,
+            OperandType::Rax => OperandSize::Oq,
             OperandType::Rel8 => OperandSize::Ob,
             OperandType::Rel16 => OperandSize::Ow,
             OperandType::Rel32 => OperandSize::Od,
@@ -251,6 +259,10 @@ impl OperandType {
     /// If self is match with expr
     pub fn match_with(self, expr: &str) -> bool {
         match self {
+            OperandType::Al => expr == "al",
+            OperandType::Ax => expr == "ax",
+            OperandType::Eax => expr == "eax",
+            OperandType::Rax => expr == "rax",
             OperandType::Rel8 => number_match_with(expr, i8::MIN as i128, i8::MAX as i128),
             OperandType::Rel16 => number_match_with(expr, i16::MIN as i128, i16::MAX as i128),
             OperandType::Rel32 => number_match_with(expr, i32::MIN as i128, i32::MAX as i128),
