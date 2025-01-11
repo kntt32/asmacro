@@ -11,6 +11,7 @@ pub static INSTRUCTION_LIST: &[Instruction] = &[
     MOV_R32_IMM32,
     POP_R64,
     NEAR_RET,
+    NEAR_CALL,
 ];
 
 // PUSH reg64   50 +rq
@@ -145,5 +146,20 @@ const NEAR_RET: Instruction = Instruction {
     expression: Expression {
         mnemonic: "ret",
         operands: [None, None],
+    },
+};
+
+// CALL rel32off    E8 id
+const NEAR_CALL: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xe8, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Oq,
+    },
+    expression: Expression {
+        mnemonic: "call",
+        operands: [Some(OperandType::Rel32), None],
     },
 };

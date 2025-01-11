@@ -3,7 +3,7 @@ use crate::{
     instruction::{Instruction, OperandType, INSTRUCTION_LIST},
     register::Register,
 };
-use util::functions::result_to_option;
+use util::functions::{result_to_option, stoi};
 
 /// Methods related to machine code encoding
 pub mod encode;
@@ -101,5 +101,19 @@ impl<'a> Line<'a> {
             .expect("invalid operation");
 
         result_to_option(operand.parse())
+    }
+
+    /// Get imm operand
+    pub fn imm_operand(self) -> Option<i128> {
+        let operand: &str = self
+            .get_operand_by_type(OperandType::Imm8)
+            .or_else(|| self.get_operand_by_type(OperandType::Imm16))
+            .or_else(|| self.get_operand_by_type(OperandType::Imm32))
+            .or_else(|| self.get_operand_by_type(OperandType::Imm64))
+            .or_else(|| self.get_operand_by_type(OperandType::Rel8))
+            .or_else(|| self.get_operand_by_type(OperandType::Rel16))
+            .or_else(|| self.get_operand_by_type(OperandType::Rel32))
+            .expect("invalid input");
+        stoi(operand)
     }
 }

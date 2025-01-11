@@ -1,6 +1,6 @@
 use super::Line;
 use crate::{
-    instruction::{ModRmRule, OperandSize, OperandType},
+    instruction::{ImmRule, ModRmRule, OperandSize, OperandType},
     register::{Register, RegisterCode},
 };
 use std::{cmp::max, mem::transmute};
@@ -8,15 +8,15 @@ use util::{functions::stoi, svec::SVec};
 
 impl<'a> Line<'a> {
     /// Get raw machine code
-    pub fn machine_code(self) -> SVec<13, u8> {
+    pub fn machine_code(self) -> SVec<19, u8> {
         let mut svec = SVec::new();
-        svec += self.legacy_prefix();
-        svec += self.rex_prefix();
-        svec += self.opecode();
-        svec += self.modrm();
-        svec += self.sib();
-        svec += self.disp();
-        svec += self.imm();
+        svec += self.legacy_prefix(); //1
+        svec += self.rex_prefix(); //1
+        svec += self.opecode(); //3
+        svec += self.modrm(); //1
+        svec += self.sib(); //1
+        svec += self.disp(); //4
+        svec += self.imm(); //8
         svec
     }
 
@@ -297,6 +297,24 @@ impl<'a> Line<'a> {
         }
     }
 
+    fn imm_len(self) -> usize {
+        let imm_rule = self
+            .get_instruction()
+            .expect("invalid operation")
+            .encoding()
+            .imm_rule();
+
+        match imm_rule {
+            None => 0,
+            Some(i) => match i {
+                ImmRule::Ib => 1,
+                ImmRule::Iw => 2,
+                ImmRule::Id => 4,
+                ImmRule::Iq => 8,
+            },
+        }
+    }
+
     /// Get Imm in raw machine code
     pub fn imm(self) -> SVec<8, u8> {
         let imm_rule = self
@@ -306,15 +324,11 @@ impl<'a> Line<'a> {
             .imm_rule();
         match imm_rule {
             None => SVec::new(),
-            Some(i) => {
-                let operand_type = i.operand_type();
-                let value = stoi(
-                    self.get_operand_by_type(operand_type)
-                        .expect("invalid operation"),
-                )
-                .expect("invalid operation");
-                let value = unsafe { transmute::<i128, u128>(value) };
-                SVec::from_value(value, operand_type.size().value())
+            Some(_) => {
+                let imm: i128 = self.imm_operand().expect("invalid operation");
+                let imm_usize: u128 = unsafe { transmute::<i128, u128>(imm) };
+                let imm_len = self.imm_len();
+                SVec::from_value(imm_usize, imm_len)
             }
         }
     }
