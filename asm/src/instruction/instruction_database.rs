@@ -14,6 +14,32 @@ pub static INSTRUCTION_LIST: &[Instruction] = &[
     ADC_RM32_IMM8,
     ADC_RM64_IMM8,
     ADC_RM8_REG8,
+    ADC_RM16_REG16,
+    ADC_RM32_REG32,
+    ADC_RM64_REG64,
+    ADC_REG8_RM8,
+    ADC_REG16_RM16,
+    ADC_REG32_RM32,
+    ADC_REG64_RM64,
+    ADD_AL_IMM8,
+    ADD_AX_IMM16,
+    ADD_EAX_IMM32,
+    ADD_RAX_IMM32,
+    ADD_RM8_IMM8,
+    ADD_RM16_IMM16,
+    ADD_RM32_IMM32,
+    ADD_RM64_IMM32,
+    ADD_RM16_IMM8,
+    ADD_RM32_IMM8,
+    ADD_RM64_IMM8,
+    ADD_RM8_REG8,
+    ADD_RM16_REG16,
+    ADD_RM32_REG32,
+    ADD_RM64_REG64,
+    ADD_REG8_RM8,
+    ADD_REG16_RM16,
+    ADD_REG32_RM32,
+    ADD_REG64_RM64,
     PUSH_R64,
     PUSH_RM64,
     PUSH_IMM64,
@@ -206,13 +232,395 @@ const ADC_RM8_REG8: Instruction = Instruction {
     },
 };
 
-// ADC reg/mem16, reg1611 /rAdd reg16 to reg/mem16 + CF.
+// ADC reg/mem16, reg16    11 /r    Add reg16 to reg/mem16 + CF.
+const ADC_RM16_REG16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x11, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "adc",
+        operands: [Some(OperandType::Rm16), Some(OperandType::R16)],
+    },
+};
+
 // ADC reg/mem32, reg3211 /rAdd reg32 to reg/mem32 + CF.
+const ADC_RM32_REG32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x11, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "adc",
+        operands: [Some(OperandType::Rm32), Some(OperandType::R32)],
+    },
+};
+
 // ADC reg/mem64, reg6411 /rAdd reg64 to reg/mem64 + CF.
+const ADC_RM64_REG64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x11, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "adc",
+        operands: [Some(OperandType::Rm64), Some(OperandType::R64)],
+    },
+};
+
 // ADC reg8, reg/mem812 /rAdd reg/mem8 to reg8 + CF.
+const ADC_REG8_RM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x12, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "adc",
+        operands: [Some(OperandType::R8), Some(OperandType::Rm8)],
+    },
+};
+
 // ADC reg16, reg/mem1613 /rAdd reg/mem16 to reg16 + CF.
+const ADC_REG16_RM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x13, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "adc",
+        operands: [Some(OperandType::R16), Some(OperandType::Rm16)],
+    },
+};
+
 // ADC reg32, reg/mem3213 /rAdd reg/mem32 to reg32 + CF.
+const ADC_REG32_RM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x13, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "adc",
+        operands: [Some(OperandType::R32), Some(OperandType::Rm32)],
+    },
+};
+
 // ADC reg64, reg/mem6413 /rAdd reg/mem64 to reg64 + CF.
+const ADC_REG64_RM64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x13, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "adc",
+        operands: [Some(OperandType::R64), Some(OperandType::Rm64)],
+    },
+};
+
+// ADD AL, imm8 04 ib Add imm8 to AL.
+const ADD_AL_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x04, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Al), Some(OperandType::Imm8)],
+    },
+};
+
+// ADD AX, imm16 05 iw Add imm16 to AX.
+const ADD_AX_IMM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x05, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Iw),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Ax), Some(OperandType::Imm16)],
+    },
+};
+
+// ADD EAX, imm32 05 id Add imm32 to EAX.
+const ADD_EAX_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x05, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Eax), Some(OperandType::Imm32)],
+    },
+};
+
+// ADD RAX, imm32 05 id Add sign-extended imm32 to RAX.
+const ADD_RAX_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x05, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rax), Some(OperandType::Imm32)],
+    },
+};
+
+// ADD reg/mem8, imm8 80 /0 ib Add imm8 to reg/mem8.
+const ADD_RM8_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x80, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(0)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rm8), Some(OperandType::Imm8)],
+    },
+};
+
+// ADD reg/mem16, imm16 81 /0 iw Add imm16 to reg/mem16
+const ADD_RM16_IMM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x81, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(0)),
+        imm: Some(ImmRule::Iw),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rm16), Some(OperandType::Imm16)],
+    },
+};
+
+// ADD reg/mem32, imm32 81 /0 id Add imm32 to reg/mem32.
+const ADD_RM32_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x81, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(0)),
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rm32), Some(OperandType::Imm32)],
+    },
+};
+
+// ADD reg/mem64, imm32 81 /0 id Add sign-extended imm32 to reg/mem64.
+const ADD_RM64_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x81, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(0)),
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rm64), Some(OperandType::Imm32)],
+    },
+};
+
+// ADD reg/mem16, imm8 83 /0 ib Add sign-extended imm8 to reg/mem16.
+const ADD_RM16_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x83, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(0)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rm16), Some(OperandType::Imm8)],
+    },
+};
+
+// ADD reg/mem32, imm8 83 /0 ib Add sign-extended imm8 to reg/mem32.
+const ADD_RM32_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x83, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(0)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rm32), Some(OperandType::Imm8)],
+    },
+};
+
+// ADD reg/mem64, imm8 83 /0 ib Add sign-extended imm8 to reg/mem64.
+const ADD_RM64_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x83, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(0)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rm64), Some(OperandType::Imm8)],
+    },
+};
+
+// ADD reg/mem8, reg8 00 /r Add reg8 to reg/mem8.
+const ADD_RM8_REG8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x00, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rm8), Some(OperandType::R8)],
+    },
+};
+
+// ADD reg/mem16, reg16 01 /r Add reg16 to reg/mem16.
+const ADD_RM16_REG16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x01, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rm16), Some(OperandType::R16)],
+    },
+};
+
+// ADD reg/mem32, reg32 01 /r Add reg32 to reg/mem32.
+const ADD_RM32_REG32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x01, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rm32), Some(OperandType::R32)],
+    },
+};
+
+// ADD reg/mem64, reg64 01 /r Add reg64 to reg/mem64.
+const ADD_RM64_REG64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x01, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::Rm64), Some(OperandType::R64)],
+    },
+};
+
+// ADD reg8, reg/mem8 02 /r Add reg/mem8 to reg8.
+const ADD_REG8_RM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x02, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::R8), Some(OperandType::Rm8)],
+    },
+};
+
+// ADD reg16, reg/mem16 03 /r Add reg/mem16 to reg16.
+const ADD_REG16_RM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x03, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::R16), Some(OperandType::Rm16)],
+    },
+};
+
+// ADD reg32, reg/mem32 03 /r Add reg/mem32 to reg32.
+const ADD_REG32_RM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x03, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::R32), Some(OperandType::Rm32)],
+    },
+};
+
+// ADD reg64, reg/mem64 03 /r Add reg/mem64 to reg64.
+const ADD_REG64_RM64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x03, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "add",
+        operands: [Some(OperandType::R64), Some(OperandType::Rm64)],
+    },
+};
 
 // PUSH reg64   50 +rq
 const PUSH_R64: Instruction = Instruction {
