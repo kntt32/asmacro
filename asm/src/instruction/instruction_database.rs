@@ -40,7 +40,6 @@ pub static INSTRUCTION_LIST: &[Instruction] = &[
     ADD_REG16_RM16,
     ADD_REG32_RM32,
     ADD_REG64_RM64,
-    NEAR_CALL_REL16,
     NEAR_CALL_REL32,
     NEAR_CALL_RM64,
     PUSH_R64,
@@ -621,21 +620,6 @@ const ADD_REG64_RM64: Instruction = Instruction {
     expression: Expression {
         mnemonic: "add",
         operands: [Some(OperandType::R64), Some(OperandType::Rm64)],
-    },
-};
-
-// NEAR CALL rel16off    E8 iw
-const NEAR_CALL_REL16: Instruction = Instruction {
-    encoding: EncodingRule {
-        opecode: SVec::from_raw([0xe8, 0x00, 0x00], 1),
-        modrm: None,
-        imm: Some(ImmRule::Iw),
-        opecode_register: None,
-        default_operand_size: OperandSize::Oq,
-    },
-    expression: Expression {
-        mnemonic: "call",
-        operands: [Some(OperandType::Rel16), None],
     },
 };
 
