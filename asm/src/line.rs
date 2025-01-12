@@ -82,13 +82,23 @@ impl<'a> Line<'a> {
 
     /// Get rm refering operand
     pub fn rm_ref_operand(self) -> Option<(i32, Register, Option<(Register, u8)>)> {
-        let operand: &str = self
+        let (operand, address_size) = self
             .get_operand_by_type(OperandType::Rm8)
-            .or_else(|| self.get_operand_by_type(OperandType::Rm16))
-            .or_else(|| self.get_operand_by_type(OperandType::Rm32))
-            .or_else(|| self.get_operand_by_type(OperandType::Rm64))?;
+            .map(|t| (t, 'b'))
+            .or_else(|| {
+                self.get_operand_by_type(OperandType::Rm16)
+                    .map(|t| (t, 'w'))
+            })
+            .or_else(|| {
+                self.get_operand_by_type(OperandType::Rm32)
+                    .map(|t| (t, 'd'))
+            })
+            .or_else(|| {
+                self.get_operand_by_type(OperandType::Rm64)
+                    .map(|t| (t, 'q'))
+            })?;
 
-        parse_rm(operand)
+        parse_rm(operand, address_size)
     }
 
     /// Get rm register operand

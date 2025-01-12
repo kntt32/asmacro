@@ -26,7 +26,7 @@ fn main() {
     }
 
     // 48 89 7c 24 10       	mov    %rdi,0x10(%rsp)
-    let code = "mov 0x10[rsp] rdi";
+    let code = "mov 0x10[rsp]q rdi";
     let parser = Parser::new(code);
     for line in parser {
         //println!("{:?}", line.modrm_scale());

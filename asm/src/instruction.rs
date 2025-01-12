@@ -274,26 +274,33 @@ impl OperandType {
             OperandType::Imm16 => number_match_with(expr, i16::MIN as i128, u16::MAX as i128),
             OperandType::Imm32 => number_match_with(expr, i32::MIN as i128, u32::MAX as i128),
             OperandType::Imm64 => number_match_with(expr, i64::MIN as i128, u64::MAX as i128),
-            OperandType::Rm8 => {
-                rm_match_with(expr, Register::operand_r8, i8::MIN as i128, i8::MAX as i128)
-            }
+            OperandType::Rm8 => rm_match_with(
+                expr,
+                Register::operand_r8,
+                i8::MIN as i128,
+                i8::MAX as i128,
+                'b',
+            ),
             OperandType::Rm16 => rm_match_with(
                 expr,
                 Register::operand_r16,
                 i16::MIN as i128,
                 i16::MAX as i128,
+                'w',
             ),
             OperandType::Rm32 => rm_match_with(
                 expr,
                 Register::operand_r32,
                 i32::MIN as i128,
                 i32::MAX as i128,
+                'd',
             ),
             OperandType::Rm64 => rm_match_with(
                 expr,
                 Register::operand_r64,
                 i64::MIN as i128,
                 i64::MAX as i128,
+                'q',
             ),
         }
     }
@@ -315,18 +322,19 @@ fn register_match_with(expr: &str, matching: impl Fn(Register) -> bool) -> bool 
 
 fn rm_match_with(
     expr: &str,
-    base_matching: impl Fn(Register) -> bool,
+    register_matching: impl Fn(Register) -> bool,
     disp_min: i128,
     disp_max: i128,
+    address_size_matching: char,
 ) -> bool {
     const fn is_valid_scale(scale: u8) -> bool {
         scale == 1 || scale == 2 || scale == 4 || scale == 8
     }
 
-    if register_match_with(expr, base_matching) {
+    if register_match_with(expr, register_matching) {
         true
     } else {
-        match parse_rm(expr.trim()) {
+        match parse_rm(expr.trim(), address_size_matching) {
             Some((disp, base, optional_index)) => {
                 let base_match = base.operand_rm_ref_base() || base == Register::Rip;
                 let index_match = match optional_index {

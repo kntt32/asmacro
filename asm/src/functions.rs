@@ -1,7 +1,10 @@
 use crate::register::Register;
 use util::functions::{result_to_option, stoi};
 
-pub fn parse_rm(mut expr: &str) -> Option<(i32, Register, Option<(Register, u8)>)> {
+pub fn parse_rm(
+    mut expr: &str,
+    address_size: char,
+) -> Option<(i32, Register, Option<(Register, u8)>)> {
     // disp[base, index, scale]
     let disp: i32 = if !expr.starts_with('[') {
         let value = stoi(expr.split_once('[')?.0)?;
@@ -15,9 +18,13 @@ pub fn parse_rm(mut expr: &str) -> Option<(i32, Register, Option<(Register, u8)>
     };
 
     expr = expr.split_once('[')?.1.trim();
+    if !expr.ends_with(address_size) {
+        return None;
+    }
+    expr = &expr[..expr.len() - address_size.len_utf8()];
     if !expr.ends_with(']') {
         return None;
-    };
+    }
     expr = &expr[..expr.len() - ']'.len_utf8()];
     let mut arguments_iter = expr.split(',');
 
