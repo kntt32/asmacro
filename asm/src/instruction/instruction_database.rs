@@ -40,6 +40,9 @@ pub static INSTRUCTION_LIST: &[Instruction] = &[
     ADD_REG16_RM16,
     ADD_REG32_RM32,
     ADD_REG64_RM64,
+    NEAR_CALL_REL16,
+    NEAR_CALL_REL32,
+    NEAR_CALL_RM64,
     PUSH_R64,
     PUSH_RM64,
     PUSH_IMM64,
@@ -49,7 +52,6 @@ pub static INSTRUCTION_LIST: &[Instruction] = &[
     MOV_R32_IMM32,
     POP_R64,
     NEAR_RET,
-    NEAR_CALL,
 ];
 
 /// ADC AL, imm8    14 ib
@@ -622,6 +624,51 @@ const ADD_REG64_RM64: Instruction = Instruction {
     },
 };
 
+// NEAR CALL rel16off    E8 iw
+const NEAR_CALL_REL16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xe8, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Iw),
+        opecode_register: None,
+        default_operand_size: OperandSize::Oq,
+    },
+    expression: Expression {
+        mnemonic: "call",
+        operands: [Some(OperandType::Rel16), None],
+    },
+};
+
+// NEAR CALL rel32off    E8 id
+const NEAR_CALL_REL32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xe8, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Oq,
+    },
+    expression: Expression {
+        mnemonic: "call",
+        operands: [Some(OperandType::Rel32), None],
+    },
+};
+
+// NEAR CALL reg/mem64    FF \2
+const NEAR_CALL_RM64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xff, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(2)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Oq,
+    },
+    expression: Expression {
+        mnemonic: "call",
+        operands: [Some(OperandType::Rm64), None],
+    },
+};
+
 // PUSH reg64   50 +rq
 const PUSH_R64: Instruction = Instruction {
     encoding: EncodingRule {
@@ -757,6 +804,7 @@ const NEAR_RET: Instruction = Instruction {
     },
 };
 
+/*
 // CALL rel32off    E8 id
 const NEAR_CALL: Instruction = Instruction {
     encoding: EncodingRule {
@@ -771,3 +819,4 @@ const NEAR_CALL: Instruction = Instruction {
         operands: [Some(OperandType::Rel32), None],
     },
 };
+*/
