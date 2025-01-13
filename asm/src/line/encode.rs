@@ -4,7 +4,7 @@ use crate::{
     register::{Register, RegisterCode},
 };
 use std::{cmp::max, mem::transmute};
-use util::{functions::stoi, svec::SVec};
+use util::svec::SVec;
 
 impl<'a> Line<'a> {
     /// Get raw machine code

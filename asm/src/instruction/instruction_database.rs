@@ -40,8 +40,34 @@ pub static INSTRUCTION_LIST: &[Instruction] = &[
     ADD_REG16_RM16,
     ADD_REG32_RM32,
     ADD_REG64_RM64,
+    AND_AL_IMM8,
+    AND_AX_IMM16,
+    AND_EAX_IMM32,
+    AND_RAX_IMM32,
+    AND_RM8_IMM8,
+    AND_RM16_IMM16,
+    AND_RM32_IMM32,
+    AND_RM64_IMM32,
+    AND_RM16_IMM8,
+    AND_RM32_IMM8,
+    AND_RM64_IMM8,
+    AND_RM8_REG8,
+    AND_RM16_REG16,
+    AND_RM32_REG32,
+    AND_RM64_REG64,
+    AND_REG8_RM8,
+    AND_REG16_RM16,
+    AND_REG32_RM32,
+    AND_REG64_RM64,
+    BSF_REG16_RM16,
+    BSF_REG32_RM32,
+    BSF_REG64_RM64,
+    BSR_REG16_RM16,
+    BSR_REG32_RM32,
+    BSR_REG64_RM64,
     NEAR_CALL_REL32,
     NEAR_CALL_RM64,
+    CLD,
     PUSH_R64,
     PUSH_RM64,
     PUSH_IMM64,
@@ -623,6 +649,381 @@ const ADD_REG64_RM64: Instruction = Instruction {
     },
 };
 
+// AND AL, imm8     24 ib
+const AND_AL_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x24, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Al), Some(OperandType::Imm8)],
+    },
+};
+
+// AND AX, imm16    25 iw
+const AND_AX_IMM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x25, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Iw),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Ax), Some(OperandType::Imm16)],
+    },
+};
+
+// AND EAX, imm32   25 id
+const AND_EAX_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x25, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Eax), Some(OperandType::Imm32)],
+    },
+};
+
+// AND RAX, imm32   25 id
+const AND_RAX_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x25, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rax), Some(OperandType::Imm32)],
+    },
+};
+
+// AND reg/mem8, imm8   80 /4 ib
+const AND_RM8_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x80, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(4)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rm8), Some(OperandType::Imm8)],
+    },
+};
+
+// AND reg/mem16, imm16     81 /4 iw
+const AND_RM16_IMM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x81, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(4)),
+        imm: Some(ImmRule::Iw),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rm16), Some(OperandType::Imm16)],
+    },
+};
+
+// AND reg/mem32, imm32     81 /4 id
+const AND_RM32_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x81, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(4)),
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rm32), Some(OperandType::Imm32)],
+    },
+};
+
+// AND reg/mem64, imm32     81 /4 id
+const AND_RM64_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x81, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(4)),
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rm64), Some(OperandType::Imm32)],
+    },
+};
+
+// AND reg/mem16, imm8      83 /4 ib
+const AND_RM16_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x83, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(4)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rm16), Some(OperandType::Imm8)],
+    },
+};
+
+// AND reg/mem32, imm8      83 /4 ib
+const AND_RM32_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x83, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(4)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rm32), Some(OperandType::Imm8)],
+    },
+};
+
+// AND reg/mem64, imm8      83 /4 ib
+const AND_RM64_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x83, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(4)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rm64), Some(OperandType::Imm8)],
+    },
+};
+
+// AND reg/mem8, reg8       20 /r
+const AND_RM8_REG8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x20, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rm8), Some(OperandType::R8)],
+    },
+};
+
+// AND reg/mem16, reg16     21 /r
+const AND_RM16_REG16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x21, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rm16), Some(OperandType::R16)],
+    },
+};
+
+// AND reg/mem32, reg32     21 /r
+const AND_RM32_REG32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x21, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rm32), Some(OperandType::R32)],
+    },
+};
+
+// AND reg/mem64, reg64     21 /r
+const AND_RM64_REG64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x21, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::Rm64), Some(OperandType::R64)],
+    },
+};
+
+// AND reg8, reg/mem8       22 /r
+const AND_REG8_RM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x22, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::R8), Some(OperandType::Rm8)],
+    },
+};
+
+// AND reg16, reg/mem16     23 /r
+const AND_REG16_RM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x23, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::R16), Some(OperandType::Rm16)],
+    },
+};
+
+// AND reg32, reg/mem32     23 /r
+const AND_REG32_RM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x23, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::R32), Some(OperandType::Rm32)],
+    },
+};
+
+// AND reg64, reg/mem64     23 /r
+const AND_REG64_RM64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x23, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "and",
+        operands: [Some(OperandType::R64), Some(OperandType::Rm64)],
+    },
+};
+
+// BSF reg16, reg/mem16     0F BC /r
+const BSF_REG16_RM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x0f, 0xbc, 0x00], 2),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "bsf",
+        operands: [Some(OperandType::R16), Some(OperandType::Rm16)],
+    },
+};
+
+// BSF reg32, reg/mem32     0F BC /r
+const BSF_REG32_RM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x0f, 0xbc, 0x00], 2),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "bsf",
+        operands: [Some(OperandType::R32), Some(OperandType::Rm32)],
+    },
+};
+
+// BSF reg64, reg/mem64     0F BC /r
+const BSF_REG64_RM64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x0f, 0xbc, 0x00], 2),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "bsf",
+        operands: [Some(OperandType::R64), Some(OperandType::Rm64)],
+    },
+};
+
+// BSR reg16, reg/mem160F BD /rBit scan reverse on the contents of reg/mem16.
+const BSR_REG16_RM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x0f, 0xbd, 0x00], 2),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "bsr",
+        operands: [Some(OperandType::R16), Some(OperandType::Rm16)],
+    },
+};
+
+// BSR reg32, reg/mem320F BD /rBit scan reverse on the contents of reg/mem32.
+const BSR_REG32_RM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x0f, 0xbd, 0x00], 2),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "bsr",
+        operands: [Some(OperandType::R32), Some(OperandType::Rm32)],
+    },
+};
+
+// BSR reg64, reg/mem640F BD /rBit scan reverse on the contents of reg/mem64.
+const BSR_REG64_RM64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x0f, 0xbd, 0x00], 2),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "bsr",
+        operands: [Some(OperandType::R64), Some(OperandType::Rm64)],
+    },
+};
+
 // NEAR CALL rel32off    E8 id
 const NEAR_CALL_REL32: Instruction = Instruction {
     encoding: EncodingRule {
@@ -652,6 +1053,142 @@ const NEAR_CALL_RM64: Instruction = Instruction {
         operands: [Some(OperandType::Rm64), None],
     },
 };
+
+// CLD  FC  Clear the direction flag (DF) to zero.
+const CLD: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xfc, 0x00, 0x00], 1),
+        modrm: None,
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cld",
+        operands: [None, None],
+    },
+};
+
+// CMP AL, imm83C ib
+// CMP AX, imm163D iw
+// CMP EAX, imm323D id
+// CMP RAX, imm323D id
+// CMP reg/mem8, imm880 /7 ib
+// CMP reg/mem16, imm1681 /7 iw
+// CMP reg/mem32, imm3281 /7 id
+// CMP reg/mem64, imm3281 /7 id
+// CMP reg/mem16, imm883 /7 ib
+// CMP reg/mem32, imm883 /7 ib
+// CMP reg/mem64, imm883 /7 ib
+// CMP reg/mem8, reg838 /r
+// CMP reg/mem16, reg1639 /r
+// CMP reg/mem32, reg3239 /r
+// CMP reg/mem64, reg6439 /r
+// CMP reg8, reg/mem83A /r
+// CMP reg16, reg/mem163B /r
+// CMP reg32, reg/mem323B /r
+// CMP reg64, reg/mem643B /r
+
+// CPUID    0F A2
+
+/*
+DEC reg/mem8FE /1Decrement the contents of an 8-bit register or memory
+location by 1.
+DEC reg/mem16FF /1Decrement the contents of a 16-bit register or memory
+location by 1.
+DEC reg/mem32FF /1Decrement the contents of a 32-bit register or memory
+location by 1.
+DEC reg/mem64FF /1Decrement the contents of a 64-bit register or memory
+location by 1.
+DEC reg1648 +rwDecrement the contents of a 16-bit register by 1.
+(See “REX Prefix” on page 14.)
+DEC reg3248 +rd
+
+DIV reg/mem8F6 /6Perform unsigned division of AX by the contents of an 8-
+bit register or memory location and store the quotient in
+AL and the remainder in AH.
+DIV reg/mem16F7 /6Perform unsigned division of DX:AX by the contents of a
+16-bit register or memory operand store the quotient in
+AX and the remainder in DX.
+DIV reg/mem32F7 /6Perform unsigned division of EDX:EAX by the contents
+of a 32-bit register or memory location and store the
+quotient in EAX and the remainder in EDX.
+DIV reg/mem64F7 /6
+
+IDIV reg/mem8F6 /7Perform signed division of AX by the contents of an 8-bit
+register or memory location and store the quotient in AL
+and the remainder in AH.
+IDIV reg/mem16F7 /7Perform signed division of DX:AX by the contents of a
+16-bit register or memory location and store the quotient
+in AX and the remainder in DX.
+IDIV reg/mem32F7 /7Perform signed division of EDX:EAX by the contents of
+a 32-bit register or memory location and store the
+quotient in EAX and the remainder in EDX.
+IDIV reg/mem64F7 /7
+
+IMUL reg/mem8F6 /5Multiply the contents of AL by the contents of an 8-bit
+memory or register operand and put the signed result in
+AX.
+IMUL reg/mem16F7 /5Multiply the contents of AX by the contents of a 16-bit
+memory or register operand and put the signed result in
+DX:AX.
+IMUL reg/mem32F7 /5Multiply the contents of EAX by the contents of a 32-bit
+memory or register operand and put the signed result in
+EDX:EAX.
+IMUL reg/mem64F7 /5Multiply the contents of RAX by the contents of a 64-bit
+memory or register operand and put the signed result in
+RDX:RAX.
+IMUL reg16, reg/mem160F AF /rMultiply the contents of a 16-bit destination register by
+the contents of a 16-bit register or memory operand and
+put the signed result in the 16-bit destination register.
+IMUL reg32, reg/mem320F AF /rMultiply the contents of a 32-bit destination register by
+the contents of a 32-bit register or memory operand and
+put the signed result in the 32-bit destination register.
+IMUL reg64, reg/mem640F AF /rMultiply the contents of a 64-bit destination register by
+the contents of a 64-bit register or memory operand and
+put the signed result in the 64-bit destination register.
+IMUL reg16, reg/mem16, imm86B /r ib
+IMUL reg32, reg/mem32, imm86B /r ibMultiply the contents of a 32-bit register or memory
+operand by a sign-extended immediate byte and put the
+signed result in the 32-bit destination register.
+IMUL reg64, reg/mem64, imm86B /r ibMultiply the contents of a 64-bit register or memory
+operand by a sign-extended immediate byte and put the
+signed result in the 64-bit destination register.
+IMUL reg16, reg/mem16,
+imm1669 /r iwMultiply the contents of a 16-bit register or memory
+operand by a sign-extended immediate word and put
+the signed result in the 16-bit destination register.
+IMUL reg32, reg/mem32,
+imm3269 /r idMultiply the contents of a 32-bit register or memory
+operand by a sign-extended immediate double and put
+the signed result in the 32-bit destination register.
+IMUL reg64, reg/mem64,
+imm3269 /r id
+
+IN AL, imm8E4 ibInput a byte from the port at the address specified by
+imm8 and put it into the AL register.
+IN AX, imm8E5 ibInput a word from the port at the address specified by
+imm8 and put it into the AX register.
+IN EAX, imm8E5 ibInput a doubleword from the port at the address
+specified by imm8 and put it into the EAX register.
+IN AL, DXECInput a byte from the port at the address specified by the
+DX register and put it into the AL register.
+IN AX, DXEDInput a word from the port at the address specified by
+the DX register and put it into the AX register.
+IN EAX, DXED
+
+IN AL, imm8E4 ibInput a byte from the port at the address specified by
+imm8 and put it into the AL register.
+IN AX, imm8E5 ibInput a word from the port at the address specified by
+imm8 and put it into the AX register.
+IN EAX, imm8E5 ibInput a doubleword from the port at the address
+specified by imm8 and put it into the EAX register.
+IN AL, DXECInput a byte from the port at the address specified by the
+DX register and put it into the AL register.
+IN AX, DXEDInput a word from the port at the address specified by
+the DX register and put it into the AX register.
+IN EAX, DXED
+*/
 
 // PUSH reg64   50 +rq
 const PUSH_R64: Instruction = Instruction {
@@ -787,20 +1324,3 @@ const NEAR_RET: Instruction = Instruction {
         operands: [None, None],
     },
 };
-
-/*
-// CALL rel32off    E8 id
-const NEAR_CALL: Instruction = Instruction {
-    encoding: EncodingRule {
-        opecode: SVec::from_raw([0xe8, 0x00, 0x00], 1),
-        modrm: None,
-        imm: Some(ImmRule::Id),
-        opecode_register: None,
-        default_operand_size: OperandSize::Oq,
-    },
-    expression: Expression {
-        mnemonic: "call",
-        operands: [Some(OperandType::Rel32), None],
-    },
-};
-*/
