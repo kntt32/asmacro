@@ -1,5 +1,7 @@
 use super::Line;
 use crate::{
+    assembler::Label,
+    functions::Relocation,
     instruction::{ImmRule, ModRmRule, OperandSize, OperandType},
     register::{Register, RegisterCode},
 };
@@ -8,16 +10,16 @@ use util::svec::SVec;
 
 impl<'a> Line<'a> {
     /// Get raw machine code
-    pub fn machine_code(self) -> SVec<19, u8> {
+    pub fn machine_code(self, labels: &[Label<'a>], offset: usize) -> Result<SVec<19, u8>, String> {
         let mut svec = SVec::new();
         svec += self.legacy_prefix(); //1
         svec += self.rex_prefix(); //1
         svec += self.opecode(); //3
         svec += self.modrm(); //1
         svec += self.sib(); //1
-        svec += self.disp(); //4
-        svec += self.imm(); //8
-        svec
+        svec += self.disp(labels, offset)?; //4
+        svec += self.imm(labels, offset)?; //8
+        Ok(svec)
     }
 
     /// Get raw machine code length
@@ -119,7 +121,7 @@ impl<'a> Line<'a> {
         }
     }
 
-    fn modrm_disp(self) -> i32 {
+    fn modrm_disp(self) -> Relocation<'a, i32> {
         let (disp, _, _) = self.rm_ref_operand().expect("invalid operation");
         disp
     }
@@ -130,11 +132,19 @@ impl<'a> Line<'a> {
             Some(Register::Rip) => 0b00,
             Some(r) => {
                 let modrm_disp = self.modrm_disp();
-                let disp_is_8bit = i8::MIN as i32 <= modrm_disp && modrm_disp <= i8::MAX as i32;
-                let disp_isnt_exist = modrm_disp == 0
-                    && r != Register::Rbp
-                    && r != Register::R13
-                    && !(self.sib_exist() && (r == Register::Rbp || r == Register::R13));
+                let disp_is_8bit;
+                let disp_isnt_exist;
+                if let Relocation::Value(d) = modrm_disp {
+                    disp_is_8bit = i8::MIN as i32 <= d && d <= i8::MAX as i32;
+                    disp_isnt_exist = d == 0
+                        && r != Register::Rbp
+                        && r != Register::R13
+                        && !(self.sib_exist() && (r == Register::Rbp || r == Register::R13));
+                } else {
+                    disp_is_8bit = false;
+                    disp_isnt_exist = false;
+                }
+
                 if disp_isnt_exist {
                     0b00
                 } else if disp_is_8bit {
@@ -361,32 +371,35 @@ impl<'a> Line<'a> {
     }
 
     /// Get Imm in raw machine code
-    pub fn imm(self) -> SVec<8, u8> {
+    pub fn imm(self, labels: &[Label<'a>], offset: usize) -> Result<SVec<8, u8>, String> {
         let imm_rule = self
             .get_instruction()
             .expect("invalid operation")
             .encoding()
             .imm_rule();
         match imm_rule {
-            None => SVec::new(),
+            None => Ok(SVec::new()),
             Some(_) => {
-                let imm: i128 = self.imm_operand().expect("invalid operation");
+                let imm: i128 = self
+                    .imm_operand()
+                    .expect("invalid operation")
+                    .relocate_imm(labels, offset)?;
                 let imm_usize: u128 = unsafe { transmute::<i128, u128>(imm) };
                 let imm_len = self.imm_len();
-                SVec::from_value(imm_usize, imm_len)
+                Ok(SVec::from_value(imm_usize, imm_len))
             }
         }
     }
 
     /// Get Disp in raw machine code
-    pub fn disp(self) -> SVec<4, u8> {
+    pub fn disp(self, labels: &[Label<'a>], offset: usize) -> Result<SVec<4, u8>, String> {
         let disp_len = self.disp_len();
         if disp_len == 0 {
-            SVec::new()
+            Ok(SVec::new())
         } else {
-            let disp = self.modrm_disp();
+            let disp = self.modrm_disp().relocate_disp(labels, offset)?;
             let disp_usize = unsafe { transmute::<i128, u128>(disp as i128) };
-            SVec::from_value(disp_usize, disp_len)
+            Ok(SVec::from_value(disp_usize, disp_len))
         }
     }
 }

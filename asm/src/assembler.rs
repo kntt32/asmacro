@@ -6,6 +6,16 @@ pub struct Label<'a> {
     offset: usize,
 }
 
+impl<'a> Label<'a> {
+    pub fn name(&self) -> &'a str {
+        self.name
+    }
+
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+}
+
 pub fn labels(source: &str) -> Result<Vec<Label<'_>>, usize> {
     let mut labels = Vec::new();
     let parser = Parser::new(source);

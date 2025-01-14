@@ -1,4 +1,8 @@
-use crate::{functions::parse_rm, line::Line, register::Register};
+use crate::{
+    functions::{is_keyword, parse_rm, Relocation},
+    line::Line,
+    register::Register,
+};
 use std::cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd};
 use util::{functions::stoi, svec::SVec};
 
@@ -263,9 +267,15 @@ impl OperandType {
             OperandType::Ax => expr == "ax",
             OperandType::Eax => expr == "eax",
             OperandType::Rax => expr == "rax",
-            OperandType::Rel8 => number_match_with(expr, i8::MIN as i128, i8::MAX as i128),
-            OperandType::Rel16 => number_match_with(expr, i16::MIN as i128, i16::MAX as i128),
-            OperandType::Rel32 => number_match_with(expr, i32::MIN as i128, i32::MAX as i128),
+            OperandType::Rel8 => {
+                number_match_with(expr, i8::MIN as i128, i8::MAX as i128) || is_keyword(expr)
+            }
+            OperandType::Rel16 => {
+                number_match_with(expr, i16::MIN as i128, i16::MAX as i128) || is_keyword(expr)
+            }
+            OperandType::Rel32 => {
+                number_match_with(expr, i32::MIN as i128, i32::MAX as i128) || is_keyword(expr)
+            }
             OperandType::R8 => register_match_with(expr, Register::operand_r8),
             OperandType::R16 => register_match_with(expr, Register::operand_r16),
             OperandType::R32 => register_match_with(expr, Register::operand_r32),
@@ -341,7 +351,11 @@ fn rm_match_with(
                     Some((index, scale)) => index.operand_rm_ref_index() && is_valid_scale(scale),
                     None => true,
                 };
-                let disp_match = disp_min <= disp as i128 && disp as i128 <= disp_max;
+                let disp_match = if let Relocation::Value(d) = disp {
+                    disp_min <= d as i128 && d as i128 <= disp_max
+                } else {
+                    true
+                };
                 base_match && index_match && disp_match
             }
             None => false,

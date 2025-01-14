@@ -1,4 +1,7 @@
-use crate::line::Line;
+use crate::{
+    functions::{is_asm_command, is_instruction, is_label},
+    line::Line,
+};
 use std::{iter::Iterator, str::Lines};
 
 /// Simple parser for assembly
@@ -45,79 +48,15 @@ impl<'a> Iterator for Parser<'a> {
         if line.is_empty() {
             return Some(Line::None);
         }
-        if parser_helper::is_label(line) {
+        if is_label(line) {
             return Some(Line::Label(line));
         }
-        if parser_helper::is_asm_command(line) {
+        if is_asm_command(line) {
             return Some(Line::AsmCommand(line));
         }
-        if parser_helper::is_instruction(line) {
+        if is_instruction(line) {
             return Some(Line::Instruction(line));
         }
         Some(Line::Unknown(line))
-    }
-}
-
-/// Parser helper functions
-mod parser_helper {
-    fn is_keyword(mut word: &str) -> bool {
-        word = word.trim();
-        let mut word_chars = word.chars();
-
-        let Some(first_char) = word_chars.next() else {
-            return false;
-        };
-        if !first_char.is_ascii_alphabetic() {
-            return false;
-        }
-
-        for c in word_chars {
-            if !c.is_ascii_alphanumeric() {
-                return false;
-            }
-        }
-
-        true
-    }
-
-    /// If this is a label
-    pub fn is_label(mut line: &str) -> bool {
-        line = line.trim();
-        if !line.ends_with(':') {
-            return false;
-        }
-        line = &line[..line.len() - ':'.len_utf8()].trim();
-        is_keyword(line)
-    }
-
-    /// If this is a assembler command
-    pub fn is_asm_command(mut line: &str) -> bool {
-        line = line.trim();
-        if !line.starts_with('.') {
-            return false;
-        }
-        line = &line[1..].trim();
-        is_keyword(line)
-    }
-
-    /// If this is a instruction
-    pub fn is_instruction(line: &str) -> bool {
-        let mut line_split = line.split(' ');
-
-        let Some(mnemonic) = line_split.next() else {
-            return false;
-        };
-        if !is_keyword(mnemonic) {
-            return false;
-        }
-
-        let Some(_) = line_split.next() else {
-            return true;
-        };
-        let Some(_) = line_split.next() else {
-            return true;
-        };
-
-        line_split.next().is_none()
     }
 }

@@ -7,14 +7,14 @@ fn main() {
         mov rbp rsp
 
         push 1
-        mov [rsp]q 0
+        mov main[rsp]q 0
         pop rax
 
         mov rsp rbp
         pop rbp
         ret
     runtime:
-        call 0";
+        call main";
     println!("{:?}", asm::labels(source));
     let parser = Parser::new(source);
 
@@ -31,6 +31,6 @@ fn main() {
     let parser = Parser::new(code);
     for line in parser {
         //println!("{:?}", line.modrm_scale());
-        println!("{:x}", line.machine_code());
+        println!("{:x}", line.machine_code(&[], 0).unwrap());
     }
 }
