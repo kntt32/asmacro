@@ -1,6 +1,11 @@
 use crate::register::Register;
 use util::functions::{result_to_option, stoi};
 
+pub enum Relocation<'a, T> {
+    Value(T),
+    Label(&'a str),
+}
+
 pub fn parse_rm(
     mut expr: &str,
     address_size: char,

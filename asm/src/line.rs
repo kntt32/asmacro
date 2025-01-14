@@ -15,7 +15,7 @@ pub enum Line<'a> {
     Label(&'a str),
     AsmCommand(&'a str),
     Instruction(&'a str),
-    UnKnown(&'a str),
+    Unknown(&'a str),
 }
 
 impl<'a> Line<'a> {
@@ -36,6 +36,14 @@ impl<'a> Line<'a> {
             }
         } else {
             None
+        }
+    }
+
+    // Is valid instruction
+    pub fn is_valid_instruction(self) -> bool {
+        match self {
+            Line::Instruction(_) => self.get_instruction().is_some(),
+            _ => false,
         }
     }
 

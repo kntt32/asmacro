@@ -20,6 +20,21 @@ impl<'a> Line<'a> {
         svec
     }
 
+    /// Get raw machine code length
+    pub fn machine_code_len(self) -> usize {
+        let mut len = 0;
+
+        len += self.legacy_prefix_len();
+        len += self.rex_prefix_len();
+        len += self.opecode_len();
+        len += self.modrm_len();
+        len += self.sib_len();
+        len += self.disp_len();
+        len += self.imm_len();
+
+        len
+    }
+
     /// Get opecode in raw machine code
     pub fn opecode(self) -> SVec<3, u8> {
         let instruction = self.get_instruction().expect("invalid operation");
@@ -33,6 +48,12 @@ impl<'a> Line<'a> {
             .1;
 
         opecode
+    }
+
+    fn opecode_len(self) -> usize {
+        let instruction = self.get_instruction().expect("invalid operation");
+        let opecode = instruction.encoding().opecode();
+        opecode.len()
     }
 
     fn opecode_register_code(self) -> Option<RegisterCode> {
@@ -168,6 +189,14 @@ impl<'a> Line<'a> {
         }
     }
 
+    fn modrm_len(self) -> usize {
+        if self.modrm_exist() {
+            1
+        } else {
+            0
+        }
+    }
+
     pub fn sib(self) -> SVec<1, u8> {
         if self.sib_exist() {
             let (_, base) = self.modrm_base_regcode();
@@ -187,6 +216,14 @@ impl<'a> Line<'a> {
             SVec::from([sib])
         } else {
             SVec::new()
+        }
+    }
+
+    fn sib_len(self) -> usize {
+        if self.sib_exist() {
+            1
+        } else {
+            0
         }
     }
 
@@ -228,6 +265,10 @@ impl<'a> Line<'a> {
             svec.push(0x66);
         }
         svec
+    }
+
+    fn legacy_prefix_len(self) -> usize {
+        self.legacy_prefix().len()
     }
 
     /// Get rex prefix in raw machine code
@@ -295,6 +336,10 @@ impl<'a> Line<'a> {
         } else {
             rex_prefix
         }
+    }
+
+    fn rex_prefix_len(self) -> usize {
+        self.rex_prefix().len()
     }
 
     fn imm_len(self) -> usize {

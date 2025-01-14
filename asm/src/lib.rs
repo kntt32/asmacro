@@ -1,3 +1,8 @@
+/// Assembler
+pub mod assembler;
+
+pub use assembler::*;
+
 /// Simple parser for assembly
 pub mod parser;
 

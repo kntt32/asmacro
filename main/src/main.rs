@@ -2,19 +2,20 @@ use asm::parser::Parser;
 
 fn main() {
     let source = "
-    .text
     main:
         push rbp
         mov rbp rsp
 
         push 1
-        mov [rsp] 0
+        mov [rsp]q 0
         pop rax
 
         mov rsp rbp
         pop rbp
-        ret";
-
+        ret
+    runtime:
+        call 0";
+    println!("{:?}", asm::labels(source));
     let parser = Parser::new(source);
 
     for line in parser {

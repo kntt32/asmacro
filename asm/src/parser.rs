@@ -54,7 +54,7 @@ impl<'a> Iterator for Parser<'a> {
         if parser_helper::is_instruction(line) {
             return Some(Line::Instruction(line));
         }
-        Some(Line::UnKnown(line))
+        Some(Line::Unknown(line))
     }
 }
 
