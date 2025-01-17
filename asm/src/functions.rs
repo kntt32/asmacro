@@ -8,32 +8,32 @@ pub enum Relocation<'a, T> {
 }
 
 impl<'a> Relocation<'a, i128> {
-    pub fn relocate_imm(self, label: &[Label<'a>], offset: usize) -> Result<i128, String> {
+    pub fn relocate_imm(self, labels: &[Label<'a>], offset: usize) -> Result<i128, String> {
         match self {
             Relocation::Value(v) => Ok(v),
             Relocation::Label(l) => {
-                for i in label {
+                for i in labels {
                     if i.name() == l {
                         return Ok(i.offset() as i128 - offset as i128);
                     }
                 }
-                Err("unknown label".to_string() + l)
+                Err("unknown label : ".to_string() + l)
             }
         }
     }
 }
 
 impl<'a> Relocation<'a, i32> {
-    pub fn relocate_disp(self, label: &[Label<'a>], offset: usize) -> Result<i32, String> {
+    pub fn relocate_disp(self, label: &[Label<'a>], next_offset: usize) -> Result<i32, String> {
         match self {
             Relocation::Value(v) => Ok(v),
             Relocation::Label(l) => {
                 for i in label {
                     if i.name() == l {
-                        return Ok((i.offset() as isize - offset as isize) as i32);
+                        return Ok((i.offset() as isize - next_offset as isize) as i32);
                     }
                 }
-                Err("unknown label".to_string() + l)
+                Err("unknown label : ".to_string() + l)
             }
         }
     }

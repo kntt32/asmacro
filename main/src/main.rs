@@ -1,3 +1,4 @@
+use asm::assembler::Asm;
 use asm::parser::Parser;
 
 fn main() {
@@ -7,7 +8,7 @@ fn main() {
         mov rbp rsp
 
         push 1
-        mov main[rsp]q 0
+        mov [rsp]q 0
         pop rax
 
         mov rsp rbp
@@ -15,16 +16,15 @@ fn main() {
         ret
     runtime:
         call main";
-    println!("{:?}", asm::labels(source));
-    let parser = Parser::new(source);
 
-    for line in parser {
-        if let Some(n) = line.get_instruction() {
-            println!("{:?}", n.mnemonic());
-        } else {
-            println!("");
-        }
+    let asm = Asm::new(source);
+    println!("{:?}", asm.labels());
+    print!("[");
+    for i in asm.assemble().unwrap() {
+        print!("{:x}, ", i);
     }
+    println!("]");
+    //    println!("{:x}", asm.assemble().unwrap());
 
     // 48 89 7c 24 10       	mov    %rdi,0x10(%rsp)
     let code = "mov 0x10[rsp]q rdi";

@@ -49,7 +49,7 @@ impl<'a> Iterator for Parser<'a> {
             return Some(Line::None);
         }
         if is_label(line) {
-            return Some(Line::Label(line));
+            return Some(Line::Label(&line[..line.len() - 1]));
         }
         if is_asm_command(line) {
             return Some(Line::AsmCommand(line));

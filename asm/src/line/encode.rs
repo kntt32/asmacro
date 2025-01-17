@@ -383,7 +383,7 @@ impl<'a> Line<'a> {
                 let imm: i128 = self
                     .imm_operand()
                     .expect("invalid operation")
-                    .relocate_imm(labels, offset)?;
+                    .relocate_imm(labels, offset + self.machine_code_len())?;
                 let imm_usize: u128 = unsafe { transmute::<i128, u128>(imm) };
                 let imm_len = self.imm_len();
                 Ok(SVec::from_value(imm_usize, imm_len))
