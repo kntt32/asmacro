@@ -68,6 +68,27 @@ pub static INSTRUCTION_LIST: &[Instruction] = &[
     NEAR_CALL_REL32,
     NEAR_CALL_RM64,
     CLD,
+    CMP_AL_IMM8,
+    CMP_AX_IMM16,
+    CMP_EAX_IMM32,
+    CMP_RAX_IMM32,
+    CMP_RM8_IMM8,
+    CMP_RM16_IMM16,
+    CMP_RM32_IMM32,
+    CMP_RM64_IMM32,
+    CMP_RM16_IMM8,
+    CMP_RM32_IMM8,
+    CMP_RM64_IMM8,
+    CMP_RM8_R8,
+    CMP_RM16_R16,
+    CMP_RM32_R32,
+    CMP_RM64_R64,
+    CMP_R8_RM8,
+    CMP_R16_RM16,
+    CMP_R32_RM32,
+    CMP_R64_RM64,
+    CPUID,
+    CQO,
     PUSH_R64,
     PUSH_RM64,
     PUSH_IMM64,
@@ -1070,26 +1091,319 @@ const CLD: Instruction = Instruction {
 };
 
 // CMP AL, imm83C ib
+const CMP_AL_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x3c, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Al), Some(OperandType::Imm8)],
+    },
+};
+
 // CMP AX, imm163D iw
+const CMP_AX_IMM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x3d, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Iw),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Ax), Some(OperandType::Imm16)],
+    },
+};
+
 // CMP EAX, imm323D id
+const CMP_EAX_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x3d, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Eax), Some(OperandType::Imm32)],
+    },
+};
+
 // CMP RAX, imm323D id
+const CMP_RAX_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x3d, 0x00, 0x00], 1),
+        modrm: None,
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rax), Some(OperandType::Imm32)],
+    },
+};
+
 // CMP reg/mem8, imm880 /7 ib
+const CMP_RM8_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x80, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(7)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rm8), Some(OperandType::Imm8)],
+    },
+};
+
 // CMP reg/mem16, imm1681 /7 iw
+const CMP_RM16_IMM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x81, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(7)),
+        imm: Some(ImmRule::Iw),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rm16), Some(OperandType::Imm16)],
+    },
+};
+
 // CMP reg/mem32, imm3281 /7 id
+const CMP_RM32_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x81, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(7)),
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rm32), Some(OperandType::Imm32)],
+    },
+};
+
 // CMP reg/mem64, imm3281 /7 id
+const CMP_RM64_IMM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x81, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(7)),
+        imm: Some(ImmRule::Id),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rm64), Some(OperandType::Imm32)],
+    },
+};
+
 // CMP reg/mem16, imm883 /7 ib
+const CMP_RM16_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x83, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(7)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rm16), Some(OperandType::Imm8)],
+    },
+};
+
 // CMP reg/mem32, imm883 /7 ib
+const CMP_RM32_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x83, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(7)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rm32), Some(OperandType::Imm8)],
+    },
+};
+
 // CMP reg/mem64, imm883 /7 ib
+const CMP_RM64_IMM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x83, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(7)),
+        imm: Some(ImmRule::Ib),
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rm64), Some(OperandType::Imm8)],
+    },
+};
+
 // CMP reg/mem8, reg838 /r
+const CMP_RM8_R8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x38, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rm8), Some(OperandType::R8)],
+    },
+};
+
 // CMP reg/mem16, reg1639 /r
+const CMP_RM16_R16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x39, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rm16), Some(OperandType::R16)],
+    },
+};
+
 // CMP reg/mem32, reg3239 /r
+const CMP_RM32_R32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x39, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rm32), Some(OperandType::R32)],
+    },
+};
+
 // CMP reg/mem64, reg6439 /r
+const CMP_RM64_R64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x39, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::Rm64), Some(OperandType::R64)],
+    },
+};
+
 // CMP reg8, reg/mem83A /r
+const CMP_R8_RM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x3a, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::R8), Some(OperandType::Rm8)],
+    },
+};
+
 // CMP reg16, reg/mem163B /r
+const CMP_R16_RM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x3b, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::R16), Some(OperandType::Rm16)],
+    },
+};
+
 // CMP reg32, reg/mem323B /r
+const CMP_R32_RM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x3b, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::R32), Some(OperandType::Rm32)],
+    },
+};
+
 // CMP reg64, reg/mem643B /r
+const CMP_R64_RM64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x3b, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::R),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cmp",
+        operands: [Some(OperandType::R64), Some(OperandType::Rm64)],
+    },
+};
 
 // CPUID    0F A2
+const CPUID: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x0f, 0xa2, 0x00], 2),
+        modrm: None,
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cpuid",
+        operands: [None, None],
+    },
+};
+
+// CQO 99
+const CQO: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x99, 0x00, 0x00], 1),
+        modrm: None,
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "cqo",
+        operands: [None, None],
+    },
+};
 
 /*
 DEC reg/mem8FE /1Decrement the contents of an 8-bit register or memory
