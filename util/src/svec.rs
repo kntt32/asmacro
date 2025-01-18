@@ -147,6 +147,12 @@ impl<const C: usize, T: Copy + Default> SVec<C, T> {
             len: len,
         }
     }
+
+    pub fn push_to(self, vec: &mut Vec<T>) {
+        for v in self {
+            vec.push(v);
+        }
+    }
 }
 
 impl<const C: usize> SVec<C, u8> {

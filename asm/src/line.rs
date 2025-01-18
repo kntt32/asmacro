@@ -1,5 +1,5 @@
 use crate::{
-    functions::parse_rm,
+    functions::{is_keyword, parse_rm, Relocation},
     instruction::{Instruction, OperandType, INSTRUCTION_LIST},
     register::Register,
 };
@@ -15,7 +15,7 @@ pub enum Line<'a> {
     Label(&'a str),
     AsmCommand(&'a str),
     Instruction(&'a str),
-    UnKnown(&'a str),
+    Unknown(&'a str),
 }
 
 impl<'a> Line<'a> {
@@ -36,6 +36,14 @@ impl<'a> Line<'a> {
             }
         } else {
             None
+        }
+    }
+
+    // Is valid instruction
+    pub fn is_valid_instruction(self) -> bool {
+        match self {
+            Line::Instruction(_) => self.get_instruction().is_some(),
+            _ => false,
         }
     }
 
@@ -81,7 +89,7 @@ impl<'a> Line<'a> {
     }
 
     /// Get rm refering operand
-    pub fn rm_ref_operand(self) -> Option<(i32, Register, Option<(Register, u8)>)> {
+    pub fn rm_ref_operand(self) -> Option<(Relocation<'a, i32>, Register, Option<(Register, u8)>)> {
         let (operand, address_size) = self
             .get_operand_by_type(OperandType::Rm8)
             .map(|t| (t, 'b'))
@@ -114,7 +122,7 @@ impl<'a> Line<'a> {
     }
 
     /// Get imm operand
-    pub fn imm_operand(self) -> Option<i128> {
+    pub fn imm_operand(self) -> Option<Relocation<'a, i128>> {
         let operand: &str = self
             .get_operand_by_type(OperandType::Imm8)
             .or_else(|| self.get_operand_by_type(OperandType::Imm16))
@@ -124,6 +132,12 @@ impl<'a> Line<'a> {
             .or_else(|| self.get_operand_by_type(OperandType::Rel16))
             .or_else(|| self.get_operand_by_type(OperandType::Rel32))
             .expect("invalid input");
-        stoi(operand)
+        if let Some(n) = stoi(operand) {
+            Some(Relocation::Value(n))
+        } else if is_keyword(operand) {
+            Some(Relocation::Label(operand))
+        } else {
+            None
+        }
     }
 }
