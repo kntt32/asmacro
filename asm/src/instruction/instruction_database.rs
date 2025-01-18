@@ -89,6 +89,16 @@ pub static INSTRUCTION_LIST: &[Instruction] = &[
     CMP_R64_RM64,
     CPUID,
     CQO,
+    DEC_RM8,
+    DEC_RM16,
+    DEC_RM32,
+    DEC_RM64,
+    DEC_R16,
+    DEC_R32,
+    DIV_RM8,
+    DIV_RM16,
+    DIV_RM32,
+    DIV_RM64,
     PUSH_R64,
     PUSH_RM64,
     PUSH_IMM64,
@@ -1405,30 +1415,158 @@ const CQO: Instruction = Instruction {
     },
 };
 
+
+// DEC reg/mem8FE /1
+const DEC_RM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xfe, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(1)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "dec",
+        operands: [Some(OperandType::Rm8), None],
+    },
+};
+
+// DEC reg/mem16FF /1
+const DEC_RM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xff, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(1)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "dec",
+        operands: [Some(OperandType::Rm16), None],
+    },
+};
+
+// DEC reg/mem32FF /1
+const DEC_RM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xff, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(1)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "dec",
+        operands: [Some(OperandType::Rm32), None],
+    },
+};
+
+// DEC reg/mem64FF /1
+const DEC_RM64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xff, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(1)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "dec",
+        operands: [Some(OperandType::Rm64), None],
+    },
+};
+
+// DEC reg1648 +rw
+const DEC_R16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x48, 0x00, 0x00], 1),
+        modrm: None,
+        imm: None,
+        opecode_register: Some(OpecodeRegisterRule::Rw),
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "dec",
+        operands: [Some(OperandType::R16), None],
+    },
+};
+
+// DEC reg3248 +rd
+const DEC_R32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0x48, 0x00, 0x00], 1),
+        modrm: None,
+        imm: None,
+        opecode_register: Some(OpecodeRegisterRule::Rd),
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "dec",
+        operands: [Some(OperandType::R32), None],
+    },
+};
+
+// DIV reg/mem8F6 /6
+const DIV_RM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xf6, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(6)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "div",
+        operands: [Some(OperandType::Rm8), None],
+    },
+};
+
+// DIV reg/mem16F7 /6
+const DIV_RM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xf7, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(6)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "div",
+        operands: [Some(OperandType::Rm16), None],
+    },
+};
+
+// DIV reg/mem32F7 /6
+const DIV_RM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xf7, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(6)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "div",
+        operands: [Some(OperandType::Rm32), None],
+    },
+};
+
+// DIV reg/mem64F7 /6
+const DIV_RM64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xf7, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(6)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "div",
+        operands: [Some(OperandType::Rm64), None],
+    },
+};
+
 /*
-DEC reg/mem8FE /1Decrement the contents of an 8-bit register or memory
-location by 1.
-DEC reg/mem16FF /1Decrement the contents of a 16-bit register or memory
-location by 1.
-DEC reg/mem32FF /1Decrement the contents of a 32-bit register or memory
-location by 1.
-DEC reg/mem64FF /1Decrement the contents of a 64-bit register or memory
-location by 1.
-DEC reg1648 +rwDecrement the contents of a 16-bit register by 1.
-(See “REX Prefix” on page 14.)
-DEC reg3248 +rd
-
-DIV reg/mem8F6 /6Perform unsigned division of AX by the contents of an 8-
-bit register or memory location and store the quotient in
-AL and the remainder in AH.
-DIV reg/mem16F7 /6Perform unsigned division of DX:AX by the contents of a
-16-bit register or memory operand store the quotient in
-AX and the remainder in DX.
-DIV reg/mem32F7 /6Perform unsigned division of EDX:EAX by the contents
-of a 32-bit register or memory location and store the
-quotient in EAX and the remainder in EDX.
-DIV reg/mem64F7 /6
-
 IDIV reg/mem8F6 /7Perform signed division of AX by the contents of an 8-bit
 register or memory location and store the quotient in AL
 and the remainder in AH.
