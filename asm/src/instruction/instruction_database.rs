@@ -99,6 +99,10 @@ pub static INSTRUCTION_LIST: &[Instruction] = &[
     DIV_RM16,
     DIV_RM32,
     DIV_RM64,
+    IDIV_RM8,
+    IDIV_RM16,
+    IDIV_RM32,
+    IDIV_RM64,
     PUSH_R64,
     PUSH_RM64,
     PUSH_IMM64,
@@ -1566,57 +1570,81 @@ const DIV_RM64: Instruction = Instruction {
     },
 };
 
+// IDIV reg/mem8F6 /7
+const IDIV_RM8: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xf6, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(7)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "idiv",
+        operands: [Some(OperandType::Rm8), None],
+    },
+};
+
+// IDIV reg/mem16F7 /7
+const IDIV_RM16: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xf7, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(7)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "idiv",
+        operands: [Some(OperandType::Rm16), None],
+    },
+};
+
+
+// IDIV reg/mem32F7 /7
+const IDIV_RM32: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xf7, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(7)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "idiv",
+        operands: [Some(OperandType::Rm32), None],
+    },
+};
+
+// IDIV reg/mem64F7 /7
+const IDIV_RM64: Instruction = Instruction {
+    encoding: EncodingRule {
+        opecode: SVec::from_raw([0xf7, 0x00, 0x00], 1),
+        modrm: Some(ModRmRule::Dight(7)),
+        imm: None,
+        opecode_register: None,
+        default_operand_size: OperandSize::Od,
+    },
+    expression: Expression {
+        mnemonic: "idiv",
+        operands: [Some(OperandType::Rm64), None],
+    },
+};
+
+// IMUL reg/mem8F6 /5
+// IMUL reg/mem16F7 /5
+// IMUL reg/mem32F7 /5
+// IMUL reg/mem64F7 /5
+// IMUL reg16, reg/mem160F AF /r
+// IMUL reg32, reg/mem320F AF /r
+// IMUL reg64, reg/mem640F AF /r
+// IMUL reg16, reg/mem16, imm86B /r ib
+// IMUL reg32, reg/mem32, imm86B /r ib
+// IMUL reg64, reg/mem64, imm86B /r ib
+// IMUL reg16, reg/mem16, imm1669 /r iw
+// IMUL reg32, reg/mem32, imm3269 /r id
+// IMUL reg64, reg/mem64, imm3269 /r id
 /*
-IDIV reg/mem8F6 /7Perform signed division of AX by the contents of an 8-bit
-register or memory location and store the quotient in AL
-and the remainder in AH.
-IDIV reg/mem16F7 /7Perform signed division of DX:AX by the contents of a
-16-bit register or memory location and store the quotient
-in AX and the remainder in DX.
-IDIV reg/mem32F7 /7Perform signed division of EDX:EAX by the contents of
-a 32-bit register or memory location and store the
-quotient in EAX and the remainder in EDX.
-IDIV reg/mem64F7 /7
-
-IMUL reg/mem8F6 /5Multiply the contents of AL by the contents of an 8-bit
-memory or register operand and put the signed result in
-AX.
-IMUL reg/mem16F7 /5Multiply the contents of AX by the contents of a 16-bit
-memory or register operand and put the signed result in
-DX:AX.
-IMUL reg/mem32F7 /5Multiply the contents of EAX by the contents of a 32-bit
-memory or register operand and put the signed result in
-EDX:EAX.
-IMUL reg/mem64F7 /5Multiply the contents of RAX by the contents of a 64-bit
-memory or register operand and put the signed result in
-RDX:RAX.
-IMUL reg16, reg/mem160F AF /rMultiply the contents of a 16-bit destination register by
-the contents of a 16-bit register or memory operand and
-put the signed result in the 16-bit destination register.
-IMUL reg32, reg/mem320F AF /rMultiply the contents of a 32-bit destination register by
-the contents of a 32-bit register or memory operand and
-put the signed result in the 32-bit destination register.
-IMUL reg64, reg/mem640F AF /rMultiply the contents of a 64-bit destination register by
-the contents of a 64-bit register or memory operand and
-put the signed result in the 64-bit destination register.
-IMUL reg16, reg/mem16, imm86B /r ib
-IMUL reg32, reg/mem32, imm86B /r ibMultiply the contents of a 32-bit register or memory
-operand by a sign-extended immediate byte and put the
-signed result in the 32-bit destination register.
-IMUL reg64, reg/mem64, imm86B /r ibMultiply the contents of a 64-bit register or memory
-operand by a sign-extended immediate byte and put the
-signed result in the 64-bit destination register.
-IMUL reg16, reg/mem16,
-imm1669 /r iwMultiply the contents of a 16-bit register or memory
-operand by a sign-extended immediate word and put
-the signed result in the 16-bit destination register.
-IMUL reg32, reg/mem32,
-imm3269 /r idMultiply the contents of a 32-bit register or memory
-operand by a sign-extended immediate double and put
-the signed result in the 32-bit destination register.
-IMUL reg64, reg/mem64,
-imm3269 /r id
-
 IN AL, imm8E4 ibInput a byte from the port at the address specified by
 imm8 and put it into the AL register.
 IN AX, imm8E5 ibInput a word from the port at the address specified by
