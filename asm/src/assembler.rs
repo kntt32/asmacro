@@ -24,7 +24,7 @@ impl<'a> Asm<'a> {
                     name: s,
                     offset: offset,
                 }),
-                Line::AsmCommand(_) => todo!(),
+                Line::Pseudo(_) => todo!(),
                 Line::Instruction(_) => {
                     if line.is_valid_instruction() {
                         offset += line.machine_code_len();
@@ -52,7 +52,7 @@ impl<'a> Asm<'a> {
             match line {
                 Line::None => (),
                 Line::Label(_) => (),
-                Line::AsmCommand(_) => todo!(),
+                Line::Pseudo(_) => todo!(),
                 Line::Instruction(_) => {
                     line.machine_code(&labels, vec.len())?.push_to(&mut vec);
                 }

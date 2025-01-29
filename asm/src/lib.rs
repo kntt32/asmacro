@@ -1,8 +1,9 @@
+/*
 /// Assembler
 pub mod assembler;
 
 pub use assembler::*;
-
+*/
 /// Simple parser for assembly
 pub mod parser;
 
@@ -10,7 +11,7 @@ pub mod parser;
 pub mod line;
 
 /// Information of instructions
-pub mod instruction;
+pub use line::instruction;
 
 /// Types of registers
 pub mod register;

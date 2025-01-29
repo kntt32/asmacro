@@ -1,5 +1,6 @@
 use super::*;
-
+pub static INSTRUCTION_LIST: &[Instruction] = &[];
+/*
 /// Instruction list
 pub static INSTRUCTION_LIST: &[Instruction] = &[
     ADC_AL_IMM8,
@@ -1804,3 +1805,4 @@ const NEAR_RET: Instruction = Instruction {
         operands: [None, None],
     },
 };
+*/

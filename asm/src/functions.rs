@@ -1,17 +1,17 @@
-use crate::{assembler::Label, register::Register};
+use crate::register::Register;
 use util::functions::{result_to_option, stoi};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Relocation<'a, T> {
+pub enum Location<'a, T> {
     Value(T),
     Label(&'a str),
 }
-
-impl<'a> Relocation<'a, i128> {
+/*
+impl<'a> Location<'a, i128> {
     pub fn relocate_imm(self, labels: &[Label<'a>], offset: usize) -> Result<i128, String> {
         match self {
-            Relocation::Value(v) => Ok(v),
-            Relocation::Label(l) => {
+            Location::Value(v) => Ok(v),
+            Location::Label(l) => {
                 for i in labels {
                     if i.name() == l {
                         return Ok(i.offset() as i128 - offset as i128);
@@ -23,11 +23,11 @@ impl<'a> Relocation<'a, i128> {
     }
 }
 
-impl<'a> Relocation<'a, i32> {
+impl<'a> Location<'a, i32> {
     pub fn relocate_disp(self, label: &[Label<'a>], next_offset: usize) -> Result<i32, String> {
         match self {
-            Relocation::Value(v) => Ok(v),
-            Relocation::Label(l) => {
+            Location::Value(v) => Ok(v),
+            Location::Label(l) => {
                 for i in label {
                     if i.name() == l {
                         return Ok((i.offset() as isize - next_offset as isize) as i32);
@@ -38,29 +38,29 @@ impl<'a> Relocation<'a, i32> {
         }
     }
 }
-
+*/
 pub fn parse_rm(
     mut expr: &str,
     address_size: char,
-) -> Option<(Relocation<'_, i32>, Register, Option<(Register, u8)>)> {
+) -> Option<(Location<'_, i32>, Register, Option<(Register, u8)>)> {
     // disp[base, index, scale]
-    let disp: Relocation<'_, i32> = if !expr.starts_with('[') {
+    let disp: Location<'_, i32> = if !expr.starts_with('[') {
         let disp_expr = expr.split_once('[')?.0;
         if let Some(value) = stoi(disp_expr) {
             if i32::MIN as i128 <= value && value <= i32::MAX as i128 {
-                Relocation::Value(value as i32)
+                Location::Value(value as i32)
             } else {
                 return None;
             }
         } else {
             if is_keyword(disp_expr) {
-                Relocation::Label(disp_expr)
+                Location::Label(disp_expr)
             } else {
                 return None;
             }
         }
     } else {
-        Relocation::Value(0)
+        Location::Value(0)
     };
 
     expr = expr.split_once('[')?.1.trim();
@@ -143,16 +143,5 @@ pub fn is_instruction(line: &str) -> bool {
     let Some(mnemonic) = line_split.next() else {
         return false;
     };
-    if !is_keyword(mnemonic) {
-        return false;
-    }
-
-    let Some(_) = line_split.next() else {
-        return true;
-    };
-    let Some(_) = line_split.next() else {
-        return true;
-    };
-
-    line_split.next().is_none()
+    is_keyword(mnemonic)
 }

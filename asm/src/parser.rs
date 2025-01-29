@@ -52,7 +52,7 @@ impl<'a> Iterator for Parser<'a> {
             return Some(Line::Label(&line[..line.len() - 1]));
         }
         if is_asm_command(line) {
-            return Some(Line::AsmCommand(line));
+            return Some(Line::Pseudo(line));
         }
         if is_instruction(line) {
             return Some(Line::Instruction(line));
