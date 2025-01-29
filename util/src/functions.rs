@@ -82,8 +82,13 @@ pub fn stoi_decimal(s: &str) -> Option<i128> {
 
 /// Hex to Integer
 pub fn stoi_hex(s: &str) -> Option<i128> {
+    stoi_hex_no_prefix(remove_prefix(s, "0x")?)
+}
+
+/// Hex with no prefix to Integer
+pub fn stoi_hex_no_prefix(s: &str) -> Option<i128> {
     stoi_helper(
-        remove_prefix(s, "0x")?,
+        s,
         &[
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
         ],

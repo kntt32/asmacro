@@ -2,65 +2,33 @@ use crate::register::Register;
 use util::functions::{result_to_option, stoi};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Location<'a, T> {
-    Value(T),
+pub enum Disp<'a> {
+    Value(i32),
     Label(&'a str),
 }
-/*
-impl<'a> Location<'a, i128> {
-    pub fn relocate_imm(self, labels: &[Label<'a>], offset: usize) -> Result<i128, String> {
-        match self {
-            Location::Value(v) => Ok(v),
-            Location::Label(l) => {
-                for i in labels {
-                    if i.name() == l {
-                        return Ok(i.offset() as i128 - offset as i128);
-                    }
-                }
-                Err("unknown label : ".to_string() + l)
-            }
-        }
-    }
-}
 
-impl<'a> Location<'a, i32> {
-    pub fn relocate_disp(self, label: &[Label<'a>], next_offset: usize) -> Result<i32, String> {
-        match self {
-            Location::Value(v) => Ok(v),
-            Location::Label(l) => {
-                for i in label {
-                    if i.name() == l {
-                        return Ok((i.offset() as isize - next_offset as isize) as i32);
-                    }
-                }
-                Err("unknown label : ".to_string() + l)
-            }
-        }
-    }
-}
-*/
 pub fn parse_rm(
     mut expr: &str,
     address_size: char,
-) -> Option<(Location<'_, i32>, Register, Option<(Register, u8)>)> {
+) -> Option<(Disp<'_>, Register, Option<(Register, u8)>)> {
     // disp[base, index, scale]
-    let disp: Location<'_, i32> = if !expr.starts_with('[') {
+    let disp: Disp<'_> = if !expr.starts_with('[') {
         let disp_expr = expr.split_once('[')?.0;
         if let Some(value) = stoi(disp_expr) {
             if i32::MIN as i128 <= value && value <= i32::MAX as i128 {
-                Location::Value(value as i32)
+                Disp::Value(value as i32)
             } else {
                 return None;
             }
         } else {
             if is_keyword(disp_expr) {
-                Location::Label(disp_expr)
+                Disp::Label(disp_expr)
             } else {
                 return None;
             }
         }
     } else {
-        Location::Value(0)
+        Disp::Value(0)
     };
 
     expr = expr.split_once('[')?.1.trim();
