@@ -1,6 +1,6 @@
+use crate::object::Object;
 use instruction::{Instruction, OperandType};
 use pseudo::Pseudo;
-use crate::object::Object;
 
 /// Assembly line information
 #[derive(Clone, Copy, Debug)]
@@ -18,27 +18,32 @@ pub enum Line<'a> {
 }
 
 impl<'a> Line<'a> {
-    pub fn encode(self, object: &mut Object, pseudo_commands: &[Pseudo]) -> Result<(), String> {
+    pub fn encode(
+        self,
+        object: &mut Object,
+        pseudo_commands: &[Pseudo],
+        instructions: &[Instruction],
+    ) -> Result<(), String> {
         match self {
             Line::None => Ok(()),
             Line::Label(_) => self.label_encode(object),
-            Line::Pseudo(_) => self.pseudo_encode(object, &pseudo_commands),
-            Line::Instruction(_) => self.instruction_encode(object),
+            Line::Pseudo(_) => self.pseudo_encode(object, pseudo_commands),
+            Line::Instruction(_) => self.instruction_encode(object, instructions),
             Line::Unknown(s) => Err(format!("unknown expression \"{}\"", s)),
         }
     }
 
     /// Split instruction and return mnemonic and operands
     /// (mnemonic, operand1, operand2)
-    pub fn split_instruction(self) -> Option<(&'a str, Vec<&'a str>)> {
+    pub fn split_instruction(self) -> (&'a str, Vec<&'a str>) {
         if let Line::Instruction(s) = self {
             let mut s_split = s.trim().split(' ');
 
-            let mnemonic = s_split.next().expect("unknown error");
+            let mnemonic = s_split.next().expect("internal error");
             let operands = s_split.collect();
-            Some((mnemonic, operands))
+            (mnemonic, operands)
         } else {
-            None
+            panic!("invalid operation");
         }
     }
 
@@ -51,19 +56,13 @@ impl<'a> Line<'a> {
     }
 
     /// Get mneonic
-    pub fn mnemonic(self) -> Option<&'a str> {
-        if let Line::Instruction(s) = self {
-            let mut s_split = s.trim().split(' ');
-            let mnemonic = s_split.next().expect("unknown error");
-            Some(mnemonic)
-        } else {
-            None
-        }
+    pub fn mnemonic(self) -> &'a str {
+        self.split_instruction().0
     }
 
     /// Get operands
-    pub fn operands(self) -> Option<Vec<&'a str>> {
-        Some(self.split_instruction()?.1)
+    pub fn operands(self) -> Vec<&'a str> {
+        self.split_instruction().1
     }
 
     /// Get instruction information
@@ -84,7 +83,7 @@ impl<'a> Line<'a> {
         let operand_index = instruction
             .expression()
             .get_operand_index_by_type(operand_type)?;
-        Some(self.operands()?[operand_index])
+        Some(self.operands()[operand_index])
     }
 }
 
@@ -106,7 +105,11 @@ mod pseudo {
     }
 
     impl<'a> Line<'a> {
-        pub fn pseudo_encode(self, object: &mut Object, pseudo_commands: &[Pseudo<'_>]) -> Result<(), String> {
+        pub fn pseudo_encode(
+            self,
+            object: &mut Object,
+            pseudo_commands: &[Pseudo<'_>],
+        ) -> Result<(), String> {
             if let Line::Pseudo(s) = self {
                 let name = pseudo_name(s);
                 let arg = pseudo_arg(s);
@@ -147,22 +150,26 @@ mod pseudo {
 /// Label関連のモジュール
 pub mod label {
     use super::{Line, Object};
-    
+
     impl Line<'_> {
         pub fn label_len(self) -> Result<usize, String> {
             if let Line::Label(_) = self {
                 Ok(0)
-            }else {
+            } else {
                 panic!("internal error");
             }
         }
 
         pub fn label_encode(self, object: &mut Object) -> Result<(), String> {
             if let Line::Label(s) = self {
-                let label = Label { name: s.to_string(), value: object.code_len(), public: false };
+                let label = Label {
+                    name: s.to_string(),
+                    value: object.code_len(),
+                    public: false,
+                };
                 object.add_label(label);
                 Ok(())
-            }else {
+            } else {
                 panic!("internal error");
             }
         }
@@ -177,10 +184,10 @@ pub mod label {
 
     #[derive(Clone, Debug)]
     pub enum Location {
-        Disp32{label: String, offset: usize},
-        Rel8{label: String, offset: usize},
-        Rel16{label: String, offset: usize},
-        Rel32{label: String, offset: usize},
+        Disp32 { label: String, offset: usize },
+        Rel8 { label: String, offset: usize },
+        Rel16 { label: String, offset: usize },
+        Rel32 { label: String, offset: usize },
     }
 }
 
@@ -188,8 +195,8 @@ pub mod label {
 pub mod instruction {
     use super::{Line, Object};
     use crate::{
-        functions::{is_keyword, parse_rm, Disp},
-        register::Register,
+        functions::{is_keyword, parse_rm, parse_rm_anysize, Disp},
+        register::{Register, RegisterCode},
     };
     pub use instruction_database::INSTRUCTION_LIST;
     use std::{
@@ -202,12 +209,136 @@ pub mod instruction {
     pub use expression::{Expression, OperandType};
     pub use operand_size::OperandSize;
 
+    type SResult<T> = Result<T, String>;
+
     impl<'a> Line<'a> {
-        pub fn instruction_encode(self, object: &mut Object) -> Result<(), String> {
-            if let Line::Instruction(s) = self {
-                todo!()
-            }else {
-                panic!("internal error")
+        /// 命令のエンコード
+        pub fn instruction_encode(
+            self,
+            object: &mut Object,
+            instructions: &[Instruction],
+        ) -> SResult<()> {
+            let Some(instruction) = self.get_instruction(instructions) else {
+                return Err("unknown instruction".to_string());
+            };
+            self.push_opecode(object, instruction)?;
+            todo!()
+        }
+
+        fn register_operand(self, instruction: &Instruction) -> &'a str {
+            let register_operand_index = instruction
+                .expression()
+                .get_register_operand_index()
+                .expect("internal error");
+            self.operands()[register_operand_index]
+        }
+
+        fn push_opecode(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
+            let encoding_rule = instruction.encoding();
+            let opecode = instruction.encoding().opecode();
+            let register_code = match encoding_rule.opecode_register_rule() {
+                Some(_) => {
+                    self.register_operand(instruction)
+                        .parse::<Register>()
+                        .expect("internal error")
+                        .register_code_for_opecode_register()?
+                        .1
+                }
+                None => 0,
+            };
+
+            for i in 0..opecode.len() {
+                object.code.push(opecode[i]);
+            }
+            let object_code_len = object.code.len();
+            object.code[object_code_len - 1] += register_code;
+            Ok(())
+        }
+
+        fn modrm_register_regcode(self, instruction: &Instruction) -> SResult<RegisterCode> {
+            let encoding_rule = instruction.encoding();
+
+            match encoding_rule.modrm_rule() {
+                None => panic!("internal error"),
+                Some(ModRmRule::R) => {
+                    let register = self
+                        .register_operand(instruction)
+                        .parse::<Register>()
+                        .expect("internal error");
+                    register.register_code_for_opecode_register()
+                }
+                Some(ModRmRule::Dight(i)) => Ok((None, i)),
+            }
+        }
+
+        fn rm_operand(self, instruction: &Instruction) -> &'a str {
+            let rm_operand_index = instruction
+                .expression()
+                .get_rm_operand_index()
+                .expect("internal error");
+            self.operands()[rm_operand_index]
+        }
+
+        fn modrm_rm_register(self, instruction: &Instruction) -> Option<Register> {
+            if let Ok(r) = self.rm_operand(instruction).parse() {
+                Some(r)
+            } else {
+                None
+            }
+        }
+
+        fn modrm_rm_base(self, instruction: &Instruction) -> Option<Register> {
+            if let Some((_, base, _)) = parse_rm_anysize(self.rm_operand(instruction)) {
+                Some(base)
+            } else {
+                None
+            }
+        }
+
+        fn modrm_rm_base_register_code(self, instruction: &Instruction) -> SResult<RegisterCode> {
+            if let Some(r) = self.modrm_rm_register(instruction) {
+                r.register_code_for_opecode_register()
+            } else {
+                self.modrm_rm_base(instruction)
+                    .expect("internal error")
+                    .register_code_for_rm_ref_base()
+            }
+        }
+
+        fn modrm_rm_index(self, instruction: &Instruction) -> Option<Register> {
+            if let Some((_, _, Some((index, _)))) = parse_rm_anysize(self.rm_operand(instruction)) {
+                Some(index)
+            } else {
+                None
+            }
+        }
+
+        fn modrm_rm_index_register_code(
+            self,
+            instruction: &Instruction,
+        ) -> Option<SResult<RegisterCode>> {
+            Some(
+                self.modrm_rm_index(instruction)?
+                    .register_code_for_rm_ref_index(),
+            )
+        }
+
+        fn modrm_scale(self, instruction: &Instruction) -> Option<u8> {
+            if let Some((_, _, Some((_, scale)))) = parse_rm_anysize(self.rm_operand(instruction)) {
+                Some(scale)
+            } else {
+                None
+            }
+        }
+
+        fn modrm_scale_code(self, instruction: &Instruction) -> Option<u8> {
+            match self.modrm_scale(instruction) {
+                Some(1) => Some(0),
+                Some(2) => Some(1),
+                Some(4) => Some(2),
+                Some(8) => Some(3),
+                None => None,
+                _ => panic!("internal error"),
             }
         }
     }
@@ -544,13 +675,11 @@ pub mod instruction {
 
             /// アセンブリコードにマッチするか判定
             pub fn match_with(&self, line: &Line) -> bool {
-                line.mnemonic() == Some(self.mnemonic()) && self.operands_match_with(line)
+                line.mnemonic() == self.mnemonic() && self.operands_match_with(line)
             }
 
             fn operands_match_with(&self, line: &Line) -> bool {
-                let Some(operands) = line.operands() else {
-                    return false;
-                };
+                let operands = line.operands();
                 let operand_types = self.operands();
 
                 if operands.len() == operand_types.len() {
@@ -573,6 +702,36 @@ pub mod instruction {
                     }
                 }
                 None
+            }
+
+            /// operand_typesのオペランドが何番目の引数か取得
+            pub fn get_operand_index(&self, operand_types: &[OperandType]) -> Option<usize> {
+                for i in 0..self.operands.len() {
+                    if operand_types.contains(&self.operands[i]) {
+                        return Some(i);
+                    }
+                }
+                None
+            }
+
+            /// レジスタオペランドが何番目の引数か取得
+            pub fn get_register_operand_index(&self) -> Option<usize> {
+                self.get_operand_index(&[
+                    OperandType::R8,
+                    OperandType::R16,
+                    OperandType::R32,
+                    OperandType::R64,
+                ])
+            }
+
+            /// Rmオペランドが何番目の引数か取得
+            pub fn get_rm_operand_index(&self) -> Option<usize> {
+                self.get_operand_index(&[
+                    OperandType::Rm8,
+                    OperandType::Rm16,
+                    OperandType::Rm32,
+                    OperandType::Rm64,
+                ])
             }
         }
 

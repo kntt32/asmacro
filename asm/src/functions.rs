@@ -7,6 +7,15 @@ pub enum Disp<'a> {
     Label(&'a str),
 }
 
+pub fn parse_rm_anysize(expr: &str) -> Option<(Disp<'_>, Register, Option<(Register, u8)>)> {
+    for c in &['b', 'w', 'd', 'q'] {
+        if let Some(v) = parse_rm(expr, *c) {
+            return Some(v);
+        }
+    }
+    None
+}
+
 pub fn parse_rm(
     mut expr: &str,
     address_size: char,

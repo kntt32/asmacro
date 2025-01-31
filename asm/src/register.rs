@@ -301,8 +301,8 @@ impl Register {
     }
 
     /// Register code for opecode register
-    pub fn register_code_for_opecode_register(self) -> RegisterCode {
-        match self {
+    pub fn register_code_for_opecode_register(self) -> Result<RegisterCode, String> {
+        Ok(match self {
             Self::Al => (Some(false), 0),
             Self::Cl => (Some(false), 1),
             Self::Dl => (Some(false), 2),
@@ -375,21 +375,21 @@ impl Register {
             Self::R14 => (Some(true), 6),
             Self::R15 => (Some(true), 7),
 
-            Self::Rip => todo!("Register::Rip doesn't have register code for addreg"),
-        }
+            Self::Rip => Err("rip register is invalid".to_string())?,
+        })
     }
 
-    pub fn register_code_for_rm_ref_base(self) -> RegisterCode {
+    pub fn register_code_for_rm_ref_base(self) -> Result<RegisterCode, String> {
         if self.operand_rm_ref_base() {
             self.register_code_for_opecode_register()
         } else {
-            panic!("invalid input")
+            Err("invalid register".to_string())
         }
     }
 
-    pub fn register_code_for_rm_ref_index(self) -> RegisterCode {
+    pub fn register_code_for_rm_ref_index(self) -> Result<RegisterCode, String> {
         if self == Register::Rip {
-            panic!("invalid input")
+            Err("invalid register".to_string())
         } else {
             self.register_code_for_rm_ref_base()
         }
