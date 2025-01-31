@@ -1,5 +1,6 @@
 use instruction::{Instruction, OperandType};
 use pseudo::Pseudo;
+use crate::object::Object;
 
 /// Assembly line information
 #[derive(Clone, Copy, Debug)]
@@ -17,15 +18,16 @@ pub enum Line<'a> {
 }
 
 impl<'a> Line<'a> {
-    pub fn len(self, pseudo_commands: &[Pseudo]) -> Result<usize, String> {
+    pub fn encode(self, object: &mut Object, pseudo_commands: &[Pseudo]) -> Result<(), String> {
         match self {
-            Line::None => Ok(0),
-            Line::Label(_) => Ok(0),
-            Line::Pseudo(_) => self.pseudo_len(&pseudo_commands),
-            Line::Instruction(_) => todo!(),
+            Line::None => Ok(()),
+            Line::Label(_) => self.label_encode(object),
+            Line::Pseudo(_) => self.pseudo_encode(object, &pseudo_commands),
+            Line::Instruction(_) => self.instruction_encode(object),
             Line::Unknown(s) => Err(format!("unknown expression \"{}\"", s)),
         }
     }
+
     /// Split instruction and return mnemonic and operands
     /// (mnemonic, operand1, operand2)
     pub fn split_instruction(self) -> Option<(&'a str, Vec<&'a str>)> {
@@ -95,20 +97,21 @@ impl<'a> Line<'a> {
 /// - .utf8 : utf8文字列書き込み
 /// - .align16 : 16バイトでアライメント
 mod pseudo {
-    use super::Line;
+    use super::{Line, Object};
 
-    pub struct Pseudo {
-        name: String,
-        bin: Box<dyn Fn(&str) -> Vec<u8>>,
-        len: Box<dyn Fn(&str) -> Result<usize, String>>,
+    #[derive(Clone, Copy, Debug)]
+    pub struct Pseudo<'a> {
+        name: &'a str,
+        encode: fn(&str, &mut Object) -> Result<(), String>,
     }
+
     impl<'a> Line<'a> {
-        pub fn pseudo_bin(self, pseudo_commands: &[Pseudo]) -> Vec<u8> {
+        pub fn pseudo_encode(self, object: &mut Object, pseudo_commands: &[Pseudo<'_>]) -> Result<(), String> {
             if let Line::Pseudo(s) = self {
                 let name = pseudo_name(s);
                 let arg = pseudo_arg(s);
                 if let Some(p) = get_pseudo(name, pseudo_commands) {
-                    (p.bin)(arg)
+                    (p.encode)(arg, object)
                 } else {
                     panic!("internal error: undefined pseudo");
                 }
@@ -116,23 +119,9 @@ mod pseudo {
                 panic!("internal error: input must be Line::Pseudo");
             }
         }
-
-        pub fn pseudo_len(self, pseudo_commands: &[Pseudo]) -> Result<usize, String> {
-            if let Line::Pseudo(s) = self {
-                let name = pseudo_name(s);
-                let arg = pseudo_arg(s);
-                if let Some(p) = get_pseudo(name, pseudo_commands) {
-                    (p.len)(arg)
-                } else {
-                    Err(format!("unknown pseudo instruction : \"{}\"", s))
-                }
-            } else {
-                panic!("internal error: input must be Line::Pseudo");
-            }
-        }
     }
 
-    fn get_pseudo<'a>(name: &str, pseudo_commands: &'a [Pseudo]) -> Option<&'a Pseudo> {
+    fn get_pseudo<'a>(name: &str, pseudo_commands: &'a [Pseudo<'a>]) -> Option<&'a Pseudo<'a>> {
         pseudo_commands.iter().find(|&x| name == x.name)
     }
 
@@ -156,18 +145,50 @@ mod pseudo {
 }
 
 /// Label関連のモジュール
-mod label {
+pub mod label {
+    use super::{Line, Object};
+    
+    impl Line<'_> {
+        pub fn label_len(self) -> Result<usize, String> {
+            if let Line::Label(_) = self {
+                Ok(0)
+            }else {
+                panic!("internal error");
+            }
+        }
+
+        pub fn label_encode(self, object: &mut Object) -> Result<(), String> {
+            if let Line::Label(s) = self {
+                let label = Label { name: s.to_string(), value: object.code_len(), public: false };
+                object.add_label(label);
+                Ok(())
+            }else {
+                panic!("internal error");
+            }
+        }
+    }
+
+    #[derive(Clone, Debug)]
     pub struct Label {
         name: String,
-        offset: usize,
+        value: usize,
+        public: bool,
+    }
+
+    #[derive(Clone, Debug)]
+    pub enum Location {
+        Disp32{label: String, offset: usize},
+        Rel8{label: String, offset: usize},
+        Rel16{label: String, offset: usize},
+        Rel32{label: String, offset: usize},
     }
 }
 
 /// Instruction関連のモジュール
 pub mod instruction {
+    use super::{Line, Object};
     use crate::{
         functions::{is_keyword, parse_rm, Disp},
-        line::Line,
         register::Register,
     };
     pub use instruction_database::INSTRUCTION_LIST;
@@ -180,6 +201,16 @@ pub mod instruction {
     pub use encoding_rule::{EncodingRule, ImmRule, ModRmRule, OpecodeRegisterRule};
     pub use expression::{Expression, OperandType};
     pub use operand_size::OperandSize;
+
+    impl<'a> Line<'a> {
+        pub fn instruction_encode(self, object: &mut Object) -> Result<(), String> {
+            if let Line::Instruction(s) = self {
+                todo!()
+            }else {
+                panic!("internal error")
+            }
+        }
+    }
 
     ///命令の詳細を記述する構造体
     #[derive(Clone, Debug)]

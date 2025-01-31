@@ -10,6 +10,8 @@ pub mod parser;
 /// Line information of assembly
 pub mod line;
 
+pub mod object;
+
 /// Information of instructions
 pub use line::instruction;
 
