@@ -1,23 +1,37 @@
 use crate::register::Register;
+use std::{mem::transmute, str::FromStr};
 use util::functions::{result_to_option, stoi};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Disp<'a> {
+#[derive(Clone, Debug, PartialEq)]
+pub enum Disp {
     Value(i32),
-    Label(&'a str),
+    Label(String),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Imm<'a> {
-    Value(i32),
-    Label(&'a str),
+#[derive(Clone, Debug, PartialEq)]
+pub enum Imm {
+    Value(u64),
+    Label(String),
 }
-/*
-impl<'a> FromStr for Imm<'a> {
-    let
+
+impl FromStr for Imm {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(v) = stoi(s) {
+            if i64::MIN as i128 <= v && v <= u64::MAX as i128 {
+                let value = (unsafe { transmute::<i128, u128>(v) } & 0xffff_ffff_ffff_ffff) as u64;
+                Ok(Imm::Value(value))
+            } else {
+                Err("imm value is too large".to_string())
+            }
+        } else {
+            Ok(Imm::Label(s.to_string()))
+        }
+    }
 }
-*/
-pub fn parse_rm_anysize(expr: &str) -> Option<(Disp<'_>, Register, Option<(Register, u8)>)> {
+
+pub fn parse_rm_anysize(expr: &str) -> Option<(Disp, Register, Option<(Register, u8)>)> {
     for c in &['b', 'w', 'd', 'q'] {
         if let Some(v) = parse_rm(expr, *c) {
             return Some(v);
@@ -29,9 +43,9 @@ pub fn parse_rm_anysize(expr: &str) -> Option<(Disp<'_>, Register, Option<(Regis
 pub fn parse_rm(
     mut expr: &str,
     address_size: char,
-) -> Option<(Disp<'_>, Register, Option<(Register, u8)>)> {
+) -> Option<(Disp, Register, Option<(Register, u8)>)> {
     // disp[base, index, scale]
-    let disp: Disp<'_> = if !expr.starts_with('[') {
+    let disp: Disp = if !expr.starts_with('[') {
         let disp_expr = expr.split_once('[')?.0;
         if let Some(value) = stoi(disp_expr) {
             if i32::MIN as i128 <= value && value <= i32::MAX as i128 {
@@ -41,7 +55,7 @@ pub fn parse_rm(
             }
         } else {
             if is_keyword(disp_expr) {
-                Disp::Label(disp_expr)
+                Disp::Label(disp_expr.to_string())
             } else {
                 return None;
             }

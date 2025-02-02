@@ -1,5 +1,6 @@
 use crate::object::Object;
 use instruction::{Instruction, OperandType};
+use label::{Label, Location};
 use pseudo::Pseudo;
 
 /// Assembly line information
@@ -183,19 +184,19 @@ pub mod label {
     }
 
     #[derive(Clone, Debug)]
-    pub enum Location {
-        Disp32 { label: String, offset: usize },
-        Rel8 { label: String, offset: usize },
-        Rel16 { label: String, offset: usize },
-        Rel32 { label: String, offset: usize },
+    pub struct Location {
+        pub label: String,
+        pub offset: usize,
+        pub size: usize,
+        pub rel_base: usize,
     }
 }
 
 /// Instruction関連のモジュール
 pub mod instruction {
-    use super::{Line, Object};
+    use super::{Line, Location, Object};
     use crate::{
-        functions::{is_keyword, parse_rm, parse_rm_anysize, Disp},
+        functions::{is_keyword, parse_rm, parse_rm_anysize, Disp, Imm},
         register::{Register, RegisterCode},
     };
     pub use instruction_database::INSTRUCTION_LIST;
@@ -221,13 +222,16 @@ pub mod instruction {
             let Some(instruction) = self.get_instruction(instructions) else {
                 return Err("unknown instruction".to_string());
             };
+            let instruction_base = object.code.len();
 
             self.push_legacy_prefix(object, instruction)?;
             self.push_rex_prefix(object, instruction)?;
             self.push_opecode(object, instruction)?;
             self.push_modrm(object, instruction)?;
             self.push_sib(object, instruction)?;
-            todo!()
+            self.push_disp(object, instruction, instruction_base)?;
+            self.push_imm(object, instruction)?;
+            Ok(())
         }
 
         fn register_operand(self, instruction: &Instruction) -> Option<&'a str> {
@@ -318,9 +322,12 @@ pub mod instruction {
         }
 
         fn opecode_register_code(self, instruction: &Instruction) -> Option<SResult<RegisterCode>> {
-            match self.register_operand(instruction)?.parse::<Register>() {
-                Ok(r) => Some(r.register_code_for_opecode_register()),
-                Err(e) => Some(Err(e)),
+            match instruction.encoding().opecode_register_rule() {
+                Some(_) => match self.register_operand(instruction)?.parse::<Register>() {
+                    Ok(r) => Some(r.register_code_for_opecode_register()),
+                    Err(e) => Some(Err(e)),
+                },
+                None => None,
             }
         }
 
@@ -427,11 +434,24 @@ pub mod instruction {
             }
         }
 
-        fn modrm_disp(self, instruction: &Instruction) -> Option<Disp<'a>> {
+        fn modrm_disp(self, instruction: &Instruction) -> Option<Disp> {
             if let Some((disp, _, _)) = parse_rm_anysize(self.rm_operand(instruction)) {
                 Some(disp)
             } else {
                 None
+            }
+        }
+
+        fn disp_len(self, instruction: &Instruction) -> usize {
+            if self.modrm_exist(instruction) {
+                match self.modrm_mode(instruction).expect("internal error") {
+                    0b00 | 0b11 => 0,
+                    0b01 => 1,
+                    0b10 => 4,
+                    _ => panic!("internal error"),
+                }
+            } else {
+                0
             }
         }
 
@@ -529,7 +549,69 @@ pub mod instruction {
         }
 
         fn push_imm(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
-            todo!()
+            let imm: Imm = if let Some(s) = self.imm_operand(instruction) {
+                s.parse()?
+            } else {
+                return Ok(());
+            };
+            let imm_encoding_rule = instruction.encoding().imm_rule();
+
+            let size = imm_encoding_rule.expect("internal error").size();
+            let value = match imm {
+                Imm::Value(v) => v,
+                Imm::Label(l) => {
+                    object.location.push(Location {
+                        label: l,
+                        offset: object.code.len(),
+                        size: size,
+                        rel_base: object.code.len() + size,
+                    });
+                    0
+                }
+            };
+            for i in 0..8 {
+                let target = ((value >> (i * 8)) & 0xff) as u8;
+                if i < size {
+                    object.code.push(target);
+                } else {
+                    if target != 0x00 && target != 0xff {
+                        return Err("too large imm operand".to_string());
+                    }
+                }
+            }
+            Ok(())
+        }
+
+        fn push_disp(
+            self,
+            object: &mut Object,
+            instruction: &Instruction,
+            instruction_base: usize,
+        ) -> SResult<()> {
+            match self.modrm_disp(instruction) {
+                Some(disp) => {
+                    let value = match disp {
+                        Disp::Value(v) => v,
+                        Disp::Label(l) => {
+                            object.location.push(Location {
+                                label: l,
+                                offset: object.code.len(),
+                                size: 4,
+                                rel_base: instruction_base,
+                            });
+                            0
+                        }
+                    };
+
+                    let disp_len = self.disp_len(instruction);
+                    for i in 0..disp_len {
+                        let target = ((value >> (i * 8)) & 0xff) as u8;
+                        object.code.push(target);
+                    }
+                    Ok(())
+                }
+                None => Ok(()),
+            }
         }
     }
 
@@ -722,6 +804,16 @@ pub mod instruction {
         }
 
         impl ImmRule {
+            /// サイズ取得
+            pub fn size(self) -> usize {
+                match self {
+                    ImmRule::Ib => 1,
+                    ImmRule::Iw => 2,
+                    ImmRule::Id => 4,
+                    ImmRule::Iq => 8,
+                }
+            }
+
             /// 対応するOperandTypeの値を取得
             pub fn operand_type(self) -> OperandType {
                 match self {
