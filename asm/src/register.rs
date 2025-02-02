@@ -397,7 +397,7 @@ impl Register {
 }
 
 impl FromStr for Register {
-    type Err = ();
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
@@ -466,7 +466,7 @@ impl FromStr for Register {
             "r13l" => Self::R13l,
             "r14l" => Self::R14l,
             "r15l" => Self::R15l,
-            _ => return Err(()),
+            _ => return Err("invalid register expression".to_string()),
         })
     }
 }

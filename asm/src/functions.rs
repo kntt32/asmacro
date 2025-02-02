@@ -7,6 +7,16 @@ pub enum Disp<'a> {
     Label(&'a str),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Imm<'a> {
+    Value(i32),
+    Label(&'a str),
+}
+/*
+impl<'a> FromStr for Imm<'a> {
+    let
+}
+*/
 pub fn parse_rm_anysize(expr: &str) -> Option<(Disp<'_>, Register, Option<(Register, u8)>)> {
     for c in &['b', 'w', 'd', 'q'] {
         if let Some(v) = parse_rm(expr, *c) {

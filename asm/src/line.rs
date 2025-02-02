@@ -221,30 +221,116 @@ pub mod instruction {
             let Some(instruction) = self.get_instruction(instructions) else {
                 return Err("unknown instruction".to_string());
             };
+
+            self.push_legacy_prefix(object, instruction)?;
+            self.push_rex_prefix(object, instruction)?;
             self.push_opecode(object, instruction)?;
+            self.push_modrm(object, instruction)?;
+            self.push_sib(object, instruction)?;
             todo!()
         }
 
-        fn register_operand(self, instruction: &Instruction) -> &'a str {
-            let register_operand_index = instruction
-                .expression()
-                .get_register_operand_index()
-                .expect("internal error");
-            self.operands()[register_operand_index]
+        fn register_operand(self, instruction: &Instruction) -> Option<&'a str> {
+            let register_operand_index = instruction.expression().get_register_operand_index()?;
+            Some(self.operands()[register_operand_index])
+        }
+
+        fn imm_operand(self, instruction: &Instruction) -> Option<&'a str> {
+            let register_operand_index = instruction.expression().get_imm_operand_index()?;
+            Some(self.operands()[register_operand_index])
+        }
+
+        fn prefix_x66_exist(self, instruction: &Instruction) -> bool {
+            let expression = instruction.expression();
+            if let Some(operand_size) = expression.get_operand_size() {
+                operand_size == OperandSize::Ob
+            } else {
+                false
+            }
+        }
+
+        fn push_legacy_prefix(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
+            if self.prefix_x66_exist(instruction) {
+                object.code.push(0x66);
+            }
+            Ok(())
+        }
+
+        fn rex_prefix_is_required(self, instruction: &Instruction) -> bool {
+            let encoding = instruction.encoding();
+            let expression = instruction.expression();
+            let default_operand_size = encoding.default_operand_size();
+            assert!(OperandSize::Od <= default_operand_size);
+
+            if let Some(operand_size) = expression.get_operand_size() {
+                default_operand_size < operand_size
+            } else {
+                false
+            }
+        }
+
+        fn rex_w(self, instruction: &Instruction) -> u8 {
+            if self.rex_prefix_is_required(instruction) {
+                0x1
+            } else {
+                0x0
+            }
+        }
+
+        fn rex_r(self, instruction: &Instruction) -> u8 {
+            if let Some(Ok((Some(true), _))) = self.opecode_register_code(instruction) {
+                0b1
+            } else if let Ok((Some(true), _)) = self.modrm_register_code(instruction) {
+                0b1
+            } else {
+                0b0
+            }
+        }
+
+        fn rex_b(self, instruction: &Instruction) -> u8 {
+            if let Some(Ok((Some(true), _))) = self.modrm_base_register_code(instruction) {
+                0b1
+            } else {
+                0b0
+            }
+        }
+
+        fn rex_x(self, instruction: &Instruction) -> u8 {
+            if let Some(Ok((Some(true), _))) = self.modrm_index_register_code(instruction) {
+                0b1
+            } else {
+                0b0
+            }
+        }
+
+        fn push_rex_prefix(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
+            let rex_w = self.rex_w(instruction);
+            let rex_r = self.rex_r(instruction);
+            let rex_b = self.rex_b(instruction);
+            let rex_x = self.rex_x(instruction);
+
+            if rex_w | rex_r | rex_x | rex_b != 0 {
+                let rex_prefix = 0x40 | (rex_w << 3) | (rex_r << 2) | (rex_x << 1) | rex_b;
+                object.code.push(rex_prefix);
+            }
+
+            Ok(())
+        }
+
+        fn opecode_register_code(self, instruction: &Instruction) -> Option<SResult<RegisterCode>> {
+            match self.register_operand(instruction)?.parse::<Register>() {
+                Ok(r) => Some(r.register_code_for_opecode_register()),
+                Err(e) => Some(Err(e)),
+            }
         }
 
         fn push_opecode(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
             let encoding_rule = instruction.encoding();
             let opecode = instruction.encoding().opecode();
-            let register_code = match encoding_rule.opecode_register_rule() {
-                Some(_) => {
-                    self.register_operand(instruction)
-                        .parse::<Register>()
-                        .expect("internal error")
-                        .register_code_for_opecode_register()?
-                        .1
-                }
-                None => 0,
+            let register_code = if let Some(v) = self.opecode_register_code(instruction) {
+                v?.1
+            } else {
+                0
             };
 
             for i in 0..opecode.len() {
@@ -255,7 +341,7 @@ pub mod instruction {
             Ok(())
         }
 
-        fn modrm_register_regcode(self, instruction: &Instruction) -> SResult<RegisterCode> {
+        fn modrm_register_code(self, instruction: &Instruction) -> SResult<RegisterCode> {
             let encoding_rule = instruction.encoding();
 
             match encoding_rule.modrm_rule() {
@@ -263,6 +349,7 @@ pub mod instruction {
                 Some(ModRmRule::R) => {
                     let register = self
                         .register_operand(instruction)
+                        .expect("internal error")
                         .parse::<Register>()
                         .expect("internal error");
                     register.register_code_for_opecode_register()
@@ -279,12 +366,8 @@ pub mod instruction {
             self.operands()[rm_operand_index]
         }
 
-        fn modrm_rm_register(self, instruction: &Instruction) -> Option<Register> {
-            if let Ok(r) = self.rm_operand(instruction).parse() {
-                Some(r)
-            } else {
-                None
-            }
+        fn modrm_rm_register(self, instruction: &Instruction) -> SResult<Register> {
+            self.rm_operand(instruction).parse()
         }
 
         fn modrm_rm_base(self, instruction: &Instruction) -> Option<Register> {
@@ -295,14 +378,16 @@ pub mod instruction {
             }
         }
 
-        fn modrm_rm_base_register_code(self, instruction: &Instruction) -> SResult<RegisterCode> {
-            if let Some(r) = self.modrm_rm_register(instruction) {
+        fn modrm_base_register_code(
+            self,
+            instruction: &Instruction,
+        ) -> Option<SResult<RegisterCode>> {
+            Some(if let Ok(r) = self.modrm_rm_register(instruction) {
                 r.register_code_for_opecode_register()
             } else {
-                self.modrm_rm_base(instruction)
-                    .expect("internal error")
+                self.modrm_rm_base(instruction)?
                     .register_code_for_rm_ref_base()
-            }
+            })
         }
 
         fn modrm_rm_index(self, instruction: &Instruction) -> Option<Register> {
@@ -313,7 +398,7 @@ pub mod instruction {
             }
         }
 
-        fn modrm_rm_index_register_code(
+        fn modrm_index_register_code(
             self,
             instruction: &Instruction,
         ) -> Option<SResult<RegisterCode>> {
@@ -340,6 +425,111 @@ pub mod instruction {
                 None => None,
                 _ => panic!("internal error"),
             }
+        }
+
+        fn modrm_disp(self, instruction: &Instruction) -> Option<Disp<'a>> {
+            if let Some((disp, _, _)) = parse_rm_anysize(self.rm_operand(instruction)) {
+                Some(disp)
+            } else {
+                None
+            }
+        }
+
+        fn modrm_mode(self, instruction: &Instruction) -> Option<u8> {
+            if self.modrm_exist(instruction) {
+                let modrm_rm_base = self.modrm_rm_base(instruction);
+                Some(match modrm_rm_base {
+                    Some(Register::Rip) => 0b00,
+                    Some(r) => {
+                        let modrm_disp = self.modrm_disp(instruction);
+                        let disp_is_8bit;
+                        let disp_is_exist;
+
+                        if let Some(d) = modrm_disp {
+                            if let Disp::Value(v) = d {
+                                disp_is_8bit = i8::MIN as i32 <= v && v <= i8::MAX as i32;
+                                disp_is_exist = v != 0
+                                    || r == Register::Rbp
+                                    || r == Register::R13
+                                    || (self.sib_exist(instruction)
+                                        && (r == Register::Rbp || r == Register::R13));
+                            } else {
+                                disp_is_8bit = false;
+                                disp_is_exist = true;
+                            }
+                        } else {
+                            disp_is_8bit = false;
+                            disp_is_exist = false;
+                        }
+
+                        if disp_is_exist {
+                            if disp_is_8bit {
+                                0b01
+                            } else {
+                                0b10
+                            }
+                        } else {
+                            0b00
+                        }
+                    }
+                    None => 0b11,
+                })
+            } else {
+                None
+            }
+        }
+
+        fn modrm_exist(self, instruction: &Instruction) -> bool {
+            instruction.encoding().modrm_rule().is_some()
+        }
+
+        fn push_modrm(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
+            if self.modrm_exist(instruction) {
+                let Some(mode) = self.modrm_mode(instruction) else {
+                    return Err("internal error".to_string());
+                };
+                let (_, reg) = self.modrm_register_code(instruction)?;
+                let rm_base = if self.sib_exist(instruction) {
+                    0b100
+                } else {
+                    self.modrm_base_register_code(instruction)
+                        .expect("internal error")?
+                        .1
+                };
+                let modrm = (mode << 6) | (reg << 3) | rm_base;
+                object.code.push(modrm);
+            }
+            Ok(())
+        }
+
+        fn sib_exist(self, instruction: &Instruction) -> bool {
+            let modrm_rm_base = self.modrm_rm_base(instruction);
+            let modrm_rm_index = self.modrm_rm_index(instruction);
+            modrm_rm_index.is_some()
+                || modrm_rm_base == Some(Register::Rsp)
+                || modrm_rm_base == Some(Register::R12)
+        }
+
+        fn push_sib(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
+            if self.sib_exist(instruction) {
+                let (_, base) = self
+                    .modrm_base_register_code(instruction)
+                    .expect("internal error")?;
+                let index;
+                if let Some(c) = self.modrm_index_register_code(instruction) {
+                    index = c?.1;
+                } else {
+                    index = 0b100;
+                }
+                let scale = self.modrm_scale_code(instruction).expect("internal error");
+                let sib = (scale << 6) | (index << 3) | base;
+                object.code.push(sib);
+            }
+            Ok(())
+        }
+
+        fn push_imm(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
+            todo!()
         }
     }
 
@@ -714,6 +904,19 @@ pub mod instruction {
                 None
             }
 
+            /// 即値オペランドが何番目の引数か取得
+            pub fn get_imm_operand_index(&self) -> Option<usize> {
+                self.get_operand_index(&[
+                    OperandType::Imm8,
+                    OperandType::Imm16,
+                    OperandType::Imm32,
+                    OperandType::Imm64,
+                    OperandType::Rel8,
+                    OperandType::Rel16,
+                    OperandType::Rel32,
+                ])
+            }
+
             /// レジスタオペランドが何番目の引数か取得
             pub fn get_register_operand_index(&self) -> Option<usize> {
                 self.get_operand_index(&[
@@ -732,6 +935,21 @@ pub mod instruction {
                     OperandType::Rm32,
                     OperandType::Rm64,
                 ])
+            }
+
+            /// オペランドサイズ取得
+            pub fn get_operand_size(&self) -> Option<OperandSize> {
+                let mut max: Option<OperandSize> = None;
+                for i in self.operands() {
+                    if let Some(m) = max {
+                        if let Some(o) = i.operand_size() {
+                            max = Some(m.max(o));
+                        }
+                    } else {
+                        max = i.operand_size();
+                    }
+                }
+                max
             }
         }
 
@@ -790,7 +1008,7 @@ pub mod instruction {
         }
 
         impl OperandType {
-            /// オペランドサイズ取得
+            /// サイズ取得
             pub const fn size(self) -> OperandSize {
                 match self {
                     OperandType::Al => OperandSize::Ob,
@@ -813,6 +1031,24 @@ pub mod instruction {
                     OperandType::Rm32 => OperandSize::Od,
                     OperandType::Rm64 => OperandSize::Oq,
                 }
+            }
+
+            pub const fn operand_size(self) -> Option<OperandSize> {
+                Some(match self {
+                    OperandType::Al => OperandSize::Ob,
+                    OperandType::Ax => OperandSize::Ow,
+                    OperandType::Eax => OperandSize::Od,
+                    OperandType::Rax => OperandSize::Oq,
+                    OperandType::R8 => OperandSize::Ob,
+                    OperandType::R16 => OperandSize::Ow,
+                    OperandType::R32 => OperandSize::Od,
+                    OperandType::R64 => OperandSize::Oq,
+                    OperandType::Rm8 => OperandSize::Ob,
+                    OperandType::Rm16 => OperandSize::Ow,
+                    OperandType::Rm32 => OperandSize::Od,
+                    OperandType::Rm64 => OperandSize::Oq,
+                    _ => return None,
+                })
             }
 
             /// 表現がオペランドタイプにマッチするか判定
