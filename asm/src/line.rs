@@ -1,4 +1,6 @@
 use crate::object::Object;
+use util::functions::stoi;
+
 use instruction::{Instruction, OperandType};
 use label::{Label, Location};
 use pseudo::Pseudo;
@@ -97,19 +99,73 @@ impl<'a> Line<'a> {
 /// - .utf8 : utf8文字列書き込み
 /// - .align16 : 16バイトでアライメント
 mod pseudo {
-    use super::{Line, Object};
+    use super::{stoi, Line, Object};
+    use std::mem::transmute;
 
-    #[derive(Clone, Copy, Debug)]
-    pub struct Pseudo<'a> {
-        name: &'a str,
-        encode: fn(&str, &mut Object) -> Result<(), String>,
+    pub type Encoding = dyn Fn(&str, &mut Object) -> Result<(), String>;
+
+    pub struct Pseudo {
+        name: String,
+        encode: Box<Encoding>,
+    }
+
+    impl Pseudo {
+        pub fn new(name: String, encoding: Box<Encoding>) -> Self {
+            Pseudo {
+                name: name,
+                encode: encoding,
+            }
+        }
+
+        /*
+                fn db_helper(name: String, min: i128, max: i128, len: u32) -> Self {
+                    Pseudo {
+                        name: name.clone(),
+                        encode: Box::new(
+                            |s: &str, object: &mut Object | {
+                                for i in s.split(' ') {
+                                    if let Some(value) = stoi(i) {
+                                        if i8::MIN as i128<= value && value <= u8::MAX as i128 {
+                                            let value_u128 = unsafe { transmute::<i128, u128>(value) };
+                                            let value_u8 = value_u128 as u8;
+                                            object.code.push(value_u8);
+                                        }else {
+                                            return Err(name.clone() + "operand value must be from ");
+                                        }
+                                    }else {
+                                        return Err("invalid operand \"".to_string() + i + "\"");
+                                    }
+                                }
+                                Ok(())
+                            }
+                        ),
+                    }
+                }
+        /*
+                pub fn db8() -> Self {
+                    Pseudo {
+                        name: "db8".to_string(),
+                        encode: Box::new(
+
+                        ),
+                    }
+                }
+        */
+        */
+        pub fn std_pseudoes() -> Vec<Pseudo> {
+            //let db8 = Pseudo::db8();
+
+            vec![
+            //    db8,
+            ]
+        }
     }
 
     impl<'a> Line<'a> {
         pub fn pseudo_encode(
             self,
             object: &mut Object,
-            pseudo_commands: &[Pseudo<'_>],
+            pseudo_commands: &[Pseudo],
         ) -> Result<(), String> {
             if let Line::Pseudo(s) = self {
                 let name = pseudo_name(s);
@@ -125,7 +181,7 @@ mod pseudo {
         }
     }
 
-    fn get_pseudo<'a>(name: &str, pseudo_commands: &'a [Pseudo<'a>]) -> Option<&'a Pseudo<'a>> {
+    fn get_pseudo<'a>(name: &str, pseudo_commands: &'a [Pseudo]) -> Option<&'a Pseudo> {
         pseudo_commands.iter().find(|&x| name == x.name)
     }
 
@@ -284,7 +340,7 @@ pub mod instruction {
         fn rex_r(self, instruction: &Instruction) -> u8 {
             if let Some(Ok((Some(true), _))) = self.opecode_register_code(instruction) {
                 0b1
-            } else if let Ok((Some(true), _)) = self.modrm_register_code(instruction) {
+            } else if let Some(Ok((Some(true), _))) = self.modrm_register_code(instruction) {
                 0b1
             } else {
                 0b0
@@ -348,37 +404,34 @@ pub mod instruction {
             Ok(())
         }
 
-        fn modrm_register_code(self, instruction: &Instruction) -> SResult<RegisterCode> {
+        fn modrm_register_code(self, instruction: &Instruction) -> Option<SResult<RegisterCode>> {
             let encoding_rule = instruction.encoding();
 
             match encoding_rule.modrm_rule() {
-                None => panic!("internal error"),
+                None => None,
                 Some(ModRmRule::R) => {
                     let register = self
                         .register_operand(instruction)
                         .expect("internal error")
                         .parse::<Register>()
                         .expect("internal error");
-                    register.register_code_for_opecode_register()
+                    Some(register.register_code_for_opecode_register())
                 }
-                Some(ModRmRule::Dight(i)) => Ok((None, i)),
+                Some(ModRmRule::Dight(i)) => Some(Ok((None, i))),
             }
         }
 
-        fn rm_operand(self, instruction: &Instruction) -> &'a str {
-            let rm_operand_index = instruction
-                .expression()
-                .get_rm_operand_index()
-                .expect("internal error");
-            self.operands()[rm_operand_index]
+        fn rm_operand(self, instruction: &Instruction) -> Option<&'a str> {
+            let rm_operand_index = instruction.expression().get_rm_operand_index()?;
+            Some(self.operands()[rm_operand_index])
         }
 
-        fn modrm_rm_register(self, instruction: &Instruction) -> SResult<Register> {
-            self.rm_operand(instruction).parse()
+        fn modrm_rm_register(self, instruction: &Instruction) -> Option<SResult<Register>> {
+            Some(self.rm_operand(instruction)?.parse())
         }
 
         fn modrm_rm_base(self, instruction: &Instruction) -> Option<Register> {
-            if let Some((_, base, _)) = parse_rm_anysize(self.rm_operand(instruction)) {
+            if let Some((_, base, _)) = parse_rm_anysize(self.rm_operand(instruction)?) {
                 Some(base)
             } else {
                 None
@@ -389,16 +442,21 @@ pub mod instruction {
             self,
             instruction: &Instruction,
         ) -> Option<SResult<RegisterCode>> {
-            Some(if let Ok(r) = self.modrm_rm_register(instruction) {
-                r.register_code_for_opecode_register()
+            if self.modrm_exist(instruction) {
+                Some(if let Ok(r) = self.modrm_rm_register(instruction)? {
+                    r.register_code_for_opecode_register()
+                } else {
+                    self.modrm_rm_base(instruction)?
+                        .register_code_for_rm_ref_base()
+                })
             } else {
-                self.modrm_rm_base(instruction)?
-                    .register_code_for_rm_ref_base()
-            })
+                None
+            }
         }
 
         fn modrm_rm_index(self, instruction: &Instruction) -> Option<Register> {
-            if let Some((_, _, Some((index, _)))) = parse_rm_anysize(self.rm_operand(instruction)) {
+            if let Some((_, _, Some((index, _)))) = parse_rm_anysize(self.rm_operand(instruction)?)
+            {
                 Some(index)
             } else {
                 None
@@ -416,7 +474,8 @@ pub mod instruction {
         }
 
         fn modrm_scale(self, instruction: &Instruction) -> Option<u8> {
-            if let Some((_, _, Some((_, scale)))) = parse_rm_anysize(self.rm_operand(instruction)) {
+            if let Some((_, _, Some((_, scale)))) = parse_rm_anysize(self.rm_operand(instruction)?)
+            {
                 Some(scale)
             } else {
                 None
@@ -435,7 +494,7 @@ pub mod instruction {
         }
 
         fn modrm_disp(self, instruction: &Instruction) -> Option<Disp> {
-            if let Some((disp, _, _)) = parse_rm_anysize(self.rm_operand(instruction)) {
+            if let Some((disp, _, _)) = parse_rm_anysize(self.rm_operand(instruction)?) {
                 Some(disp)
             } else {
                 None
@@ -508,7 +567,9 @@ pub mod instruction {
                 let Some(mode) = self.modrm_mode(instruction) else {
                     return Err("internal error".to_string());
                 };
-                let (_, reg) = self.modrm_register_code(instruction)?;
+                let (_, reg) = self
+                    .modrm_register_code(instruction)
+                    .expect("internal error")?;
                 let rm_base = if self.sib_exist(instruction) {
                     0b100
                 } else {
