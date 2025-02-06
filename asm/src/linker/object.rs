@@ -1,4 +1,4 @@
-use crate::line::label::{Label, Location};
+use crate::assembler::line::label::{Label, Location};
 
 #[derive(Clone, Debug)]
 pub struct Object {
@@ -16,11 +16,11 @@ impl Object {
         }
     }
 
-    pub fn add_label(&mut self, label: Label) {
-        self.label.push(label);
-    }
-
     pub fn code_len(&self) -> usize {
         self.code.len()
     }
+    /*
+    pub fn link(&self, entry_point: &str) -> Elf {
+
+    }*/
 }

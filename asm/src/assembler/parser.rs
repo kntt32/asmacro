@@ -1,6 +1,6 @@
 use crate::{
+    assembler::line::Line,
     functions::{is_asm_command, is_instruction, is_label},
-    line::Line,
 };
 use std::{iter::Iterator, str::Lines};
 

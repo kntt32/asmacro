@@ -1,4 +1,4 @@
-use crate::object::Object;
+use crate::linker::object::Object;
 use util::functions::stoi;
 
 use instruction::Instruction;
@@ -227,13 +227,13 @@ mod pseudo {
     }
 
     fn pseudo_name(mut line: &str) -> &str {
-        const error_message: &str = "internal error: input must be pseudo instruction";
+        const ERROR_MESSAGE: &str = "internal error: input must be pseudo instruction";
         line = line.trim();
         if !line.starts_with('.') {
-            panic!("{}", error_message);
+            panic!("{}", ERROR_MESSAGE);
         }
         line = &line['.'.len_utf8()..line.len()];
-        line.split(' ').next().expect(error_message)
+        line.split(' ').next().expect(ERROR_MESSAGE)
     }
 
     fn pseudo_arg(line: &str) -> &str {
@@ -265,7 +265,7 @@ pub mod label {
                     value: object.code_len(),
                     public: false,
                 };
-                object.add_label(label);
+                object.label.push(label);
                 Ok(())
             } else {
                 panic!("internal error");
@@ -293,8 +293,8 @@ pub mod label {
 pub mod instruction {
     use super::{Line, Location, Object};
     use crate::{
+        assembler::register::{Register, RegisterCode},
         functions::{is_keyword, parse_rm, parse_rm_anysize, Disp, Imm},
-        register::{Register, RegisterCode},
     };
     pub use instruction_database::INSTRUCTION_LIST;
     use std::{

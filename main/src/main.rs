@@ -1,8 +1,7 @@
 //use asm::assembler::Asm;
 // use util::dyn_fn::DynFn;
-use asm::line::instruction::Instruction;
-use asm::line::Line;
-use asm::object::Object;
+use asm::assembler::{line::instruction::Instruction, line::Line};
+use asm::linker::object::Object;
 
 fn main() {
     let ins: Instruction = "ADC reg/mem64 reg64 , 11 /r".parse().unwrap();

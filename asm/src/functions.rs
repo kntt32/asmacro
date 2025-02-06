@@ -1,4 +1,4 @@
-use crate::register::Register;
+use crate::assembler::register::Register;
 use std::{mem::transmute, str::FromStr};
 use util::functions::{result_to_option, stoi};
 
