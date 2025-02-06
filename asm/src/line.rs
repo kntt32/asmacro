@@ -1,8 +1,8 @@
 use crate::object::Object;
 use util::functions::stoi;
 
-use instruction::{Instruction, OperandType};
-use label::{Label, Location};
+use instruction::Instruction;
+use label::Location;
 use pseudo::Pseudo;
 
 /// Assembly line information
@@ -77,17 +77,6 @@ impl<'a> Line<'a> {
         }
         None
     }
-
-    fn get_operand_by_type(
-        self,
-        instruction: &Instruction,
-        operand_type: OperandType,
-    ) -> Option<&'a str> {
-        let operand_index = instruction
-            .expression()
-            .get_operand_index_by_type(operand_type)?;
-        Some(self.operands()[operand_index])
-    }
 }
 
 /// 疑似命令関連のモジュール
@@ -109,6 +98,37 @@ mod pseudo {
         encode: Box<Encoding>,
     }
 
+    macro_rules! impl_db_pseudo {
+        ($name:literal, $min:expr, $max:expr, $len:expr) => {
+            Pseudo {
+                name: $name.to_string(),
+                encode: Box::new(|s: &str, object: &mut Object| {
+                    for i in s.split(' ') {
+                        if let Some(value_i128) = stoi(i) {
+                            if $min as i128 <= value_i128 && value_i128 <= $max as i128 {
+                                let value_u128 = unsafe { transmute::<i128, u128>(value_i128) };
+                                for j in 0..$len {
+                                    let target = ((value_u128 >> (j * 8)) & 0xff) as u8;
+                                    object.code.push(target);
+                                }
+                            } else {
+                                return Err("operand of ".to_string()
+                                    + $name
+                                    + " must be from "
+                                    + &format!("{}", $min)
+                                    + " to "
+                                    + &format!("{}", $max));
+                            }
+                        } else {
+                            return Err("invalid operand \"".to_string() + i + "\"");
+                        }
+                    }
+                    Ok(())
+                }),
+            }
+        };
+    }
+
     impl Pseudo {
         pub fn new(name: String, encoding: Box<Encoding>) -> Self {
             Pseudo {
@@ -117,47 +137,68 @@ mod pseudo {
             }
         }
 
-        /*
-                fn db_helper(name: String, min: i128, max: i128, len: u32) -> Self {
-                    Pseudo {
-                        name: name.clone(),
-                        encode: Box::new(
-                            |s: &str, object: &mut Object | {
-                                for i in s.split(' ') {
-                                    if let Some(value) = stoi(i) {
-                                        if i8::MIN as i128<= value && value <= u8::MAX as i128 {
-                                            let value_u128 = unsafe { transmute::<i128, u128>(value) };
-                                            let value_u8 = value_u128 as u8;
-                                            object.code.push(value_u8);
-                                        }else {
-                                            return Err(name.clone() + "operand value must be from ");
-                                        }
-                                    }else {
-                                        return Err("invalid operand \"".to_string() + i + "\"");
-                                    }
-                                }
-                                Ok(())
-                            }
-                        ),
-                    }
-                }
-        /*
-                pub fn db8() -> Self {
-                    Pseudo {
-                        name: "db8".to_string(),
-                        encode: Box::new(
+        pub fn db8() -> Self {
+            impl_db_pseudo!("db8", i8::MIN, u8::MAX, 1)
+        }
 
-                        ),
+        pub fn db16() -> Self {
+            impl_db_pseudo!("db16", i16::MIN, u16::MAX, 2)
+        }
+
+        pub fn db32() -> Self {
+            impl_db_pseudo!("db32", i32::MIN, u32::MAX, 4)
+        }
+
+        pub fn db64() -> Self {
+            impl_db_pseudo!("db64", i64::MIN, u64::MAX, 8)
+        }
+
+        pub fn utf8() -> Self {
+            Pseudo {
+                name: "utf8".to_string(),
+                encode: Box::new(|s: &str, object: &mut Object| {
+                    let mut s = s.trim();
+                    if s.starts_with('\"') && s.ends_with('\"') {
+                        let quat_len = '\"'.len_utf8();
+                        s = &s[quat_len..s.len() - quat_len];
+                        for c in s.bytes() {
+                            object.code.push(c);
+                        }
+                        Ok(())
+                    } else {
+                        Err("unknown expression \"".to_string() + s + "\"")
                     }
-                }
-        */
-        */
+                }),
+            }
+        }
+
+        pub fn align16() -> Self {
+            Pseudo {
+                name: "align16".to_string(),
+                encode: Box::new(|s: &str, object: &mut Object| {
+                    if s.trim().is_empty() {
+                        let code_len = object.code.len();
+                        let align_to = (code_len + 0x0f) & (!0x0f);
+                        for _ in code_len..align_to {
+                            object.code.push(0x00);
+                        }
+                        Ok(())
+                    } else {
+                        Err("align16 don't have any operands".to_string())
+                    }
+                }),
+            }
+        }
+
         pub fn std_pseudoes() -> Vec<Pseudo> {
-            //let db8 = Pseudo::db8();
+            let db8 = Pseudo::db8();
+            let db16 = Pseudo::db16();
+            let db32 = Pseudo::db32();
+            let db64 = Pseudo::db64();
+            let utf8 = Pseudo::utf8();
+            let align16 = Pseudo::align16();
 
-            vec![
-            //    db8,
-            ]
+            vec![db8, db16, db32, db64, utf8, align16]
         }
     }
 
@@ -388,7 +429,6 @@ pub mod instruction {
         }
 
         fn push_opecode(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
-            let encoding_rule = instruction.encoding();
             let opecode = instruction.encoding().opecode();
             let register_code = if let Some(v) = self.opecode_register_code(instruction) {
                 v?.1
