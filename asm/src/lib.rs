@@ -17,9 +17,6 @@ pub mod assembler {
 pub mod linker {
     /// オブジェクト形式関連
     pub mod object;
-
-    /// 実行可能形式関連
-    pub mod elf;
 }
 
 /// Functions

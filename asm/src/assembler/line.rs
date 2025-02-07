@@ -112,12 +112,10 @@ mod pseudo {
                                     object.code.push(target);
                                 }
                             } else {
-                                return Err("operand of ".to_string()
-                                    + $name
-                                    + " must be from "
-                                    + &format!("{}", $min)
-                                    + " to "
-                                    + &format!("{}", $max));
+                                return Err(format!(
+                                    "operand of {} must be from {} to {}",
+                                    $name, $min, $max
+                                ));
                             }
                         } else {
                             return Err("invalid operand \"".to_string() + i + "\"");
@@ -280,12 +278,46 @@ pub mod label {
         public: bool,
     }
 
+    impl Label {
+        pub fn add_base(&mut self, base: usize) {
+            self.value += base;
+        }
+
+        pub fn name(&self) -> &str {
+            &self.name
+        }
+
+        pub fn value(&self) -> usize {
+            self.value
+        }
+
+        pub fn is_public(&self) -> bool {
+            self.public
+        }
+    }
+
     #[derive(Clone, Debug)]
     pub struct Location {
         pub label: String,
         pub offset: usize,
         pub size: usize,
         pub rel_base: usize,
+    }
+
+    impl Location {
+        pub fn add_base(&mut self, base: usize) {
+            self.offset += base;
+            self.rel_base += base;
+        }
+
+        pub fn get_label<'a>(&self, labels: &'a [Label]) -> Option<&'a Label> {
+            for i in labels {
+                if i.name == self.label {
+                    return Some(&i);
+                }
+            }
+            None
+        }
     }
 }
 
@@ -294,7 +326,7 @@ pub mod instruction {
     use super::{Line, Location, Object};
     use crate::{
         assembler::register::{Register, RegisterCode},
-        functions::{is_keyword, parse_rm, parse_rm_anysize, Disp, Imm},
+        functions::{is_keyword, parse_rm, parse_rm_anysize, Disp, Imm, SResult},
     };
     pub use instruction_database::INSTRUCTION_LIST;
     use std::{
@@ -306,8 +338,6 @@ pub mod instruction {
     pub use encoding_rule::{EncodingRule, ImmRule, ModRmRule, OpecodeRegisterRule};
     pub use expression::{Expression, OperandType};
     pub use operand_size::OperandSize;
-
-    type SResult<T> = Result<T, String>;
 
     impl<'a> Line<'a> {
         /// 命令のエンコード

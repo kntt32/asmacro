@@ -2,6 +2,8 @@ use crate::assembler::register::Register;
 use std::{mem::transmute, str::FromStr};
 use util::functions::{result_to_option, stoi};
 
+pub type SResult<T> = Result<T, String>;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Disp {
     Value(i32),
