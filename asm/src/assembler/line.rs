@@ -81,13 +81,14 @@ impl<'a> Line<'a> {
 
 /// 疑似命令関連のモジュール
 /// # サポートする疑似命令
+/// - .global : ラベルをグローバルにする
 /// - .db8  : 8bit数値列書き込み
 /// - .db16 : 16bit数値列書き込み
 /// - .db32 : 32bit数値列書き込み
 /// - .db64 : 64bit数値列書き込み
 /// - .utf8 : utf8文字列書き込み
 /// - .align16 : 16バイトでアライメント
-mod pseudo {
+pub mod pseudo {
     use super::{stoi, Line, Object};
     use std::mem::transmute;
 
@@ -135,6 +136,22 @@ mod pseudo {
             }
         }
 
+        pub fn global() -> Self {
+            Pseudo {
+                name: "global".to_string(),
+                encode: Box::new(|s: &str, object: &mut Object| {
+                    let s = s.trim();
+                    for i in &mut object.label {
+                        if i.name == s {
+                            i.public = true;
+                            return Ok(());
+                        }
+                    }
+                    Err(format!("undefined label \"{}\"", s))
+                }),
+            }
+        }
+
         pub fn db8() -> Self {
             impl_db_pseudo!("db8", i8::MIN, u8::MAX, 1)
         }
@@ -162,6 +179,7 @@ mod pseudo {
                         for c in s.bytes() {
                             object.code.push(c);
                         }
+                        object.code.push(0x00);
                         Ok(())
                     } else {
                         Err("unknown expression \"".to_string() + s + "\"")
@@ -188,7 +206,8 @@ mod pseudo {
             }
         }
 
-        pub fn std_pseudoes() -> Vec<Pseudo> {
+        pub fn standard() -> Vec<Pseudo> {
+            let global = Pseudo::global();
             let db8 = Pseudo::db8();
             let db16 = Pseudo::db16();
             let db32 = Pseudo::db32();
@@ -196,7 +215,7 @@ mod pseudo {
             let utf8 = Pseudo::utf8();
             let align16 = Pseudo::align16();
 
-            vec![db8, db16, db32, db64, utf8, align16]
+            vec![global, db8, db16, db32, db64, utf8, align16]
         }
     }
 
@@ -273,9 +292,9 @@ pub mod label {
 
     #[derive(Clone, Debug)]
     pub struct Label {
-        name: String,
-        value: usize,
-        public: bool,
+        pub name: String,
+        pub value: usize,
+        pub public: bool,
     }
 
     impl Label {
@@ -328,16 +347,14 @@ pub mod instruction {
         assembler::register::{Register, RegisterCode},
         functions::{is_keyword, parse_rm, parse_rm_anysize, Disp, Imm, SResult},
     };
-    pub use instruction_database::INSTRUCTION_LIST;
+    pub use encoding_rule::{EncodingRule, ImmRule, ModRmRule, OpecodeRegisterRule};
+    pub use expression::{Expression, OperandType};
+    pub use operand_size::OperandSize;
     use std::{
         cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
         str::FromStr,
     };
     use util::functions::{stoi, stoi_hex_no_prefix};
-    mod instruction_database;
-    pub use encoding_rule::{EncodingRule, ImmRule, ModRmRule, OpecodeRegisterRule};
-    pub use expression::{Expression, OperandType};
-    pub use operand_size::OperandSize;
 
     impl<'a> Line<'a> {
         /// 命令のエンコード
@@ -349,14 +366,13 @@ pub mod instruction {
             let Some(instruction) = self.get_instruction(instructions) else {
                 return Err("unknown instruction".to_string());
             };
-            let instruction_base = object.code.len();
 
             self.push_legacy_prefix(object, instruction)?;
             self.push_rex_prefix(object, instruction)?;
             self.push_opecode(object, instruction)?;
             self.push_modrm(object, instruction)?;
             self.push_sib(object, instruction)?;
-            self.push_disp(object, instruction, instruction_base)?;
+            self.push_disp(object, instruction)?;
             self.push_imm(object, instruction)?;
             Ok(())
         }
@@ -552,13 +568,12 @@ pub mod instruction {
             }
         }
 
-        fn modrm_scale_code(self, instruction: &Instruction) -> Option<u8> {
+        fn modrm_scale_code(self, instruction: &Instruction) -> u8 {
             match self.modrm_scale(instruction) {
-                Some(1) => Some(0),
-                Some(2) => Some(1),
-                Some(4) => Some(2),
-                Some(8) => Some(3),
-                None => None,
+                Some(1) | None => 0,
+                Some(2) => 1,
+                Some(4) => 2,
+                Some(8) => 3,
                 _ => panic!("internal error"),
             }
         }
@@ -574,7 +589,14 @@ pub mod instruction {
         fn disp_len(self, instruction: &Instruction) -> usize {
             if self.modrm_exist(instruction) {
                 match self.modrm_mode(instruction).expect("internal error") {
-                    0b00 | 0b11 => 0,
+                    0b00 => {
+                        if self.modrm_rm_base(instruction) == Some(Register::Rip) {
+                            4
+                        } else {
+                            0
+                        }
+                    }
+                    0b11 => 0,
                     0b01 => 1,
                     0b10 => 4,
                     _ => panic!("internal error"),
@@ -672,11 +694,16 @@ pub mod instruction {
                 } else {
                     index = 0b100;
                 }
-                let scale = self.modrm_scale_code(instruction).expect("internal error");
+                let scale = self.modrm_scale_code(instruction);
                 let sib = (scale << 6) | (index << 3) | base;
                 object.code.push(sib);
             }
             Ok(())
+        }
+
+        fn imm_len(self, instruction: &Instruction) -> Option<usize> {
+            let imm_encoding_rule = instruction.encoding().imm_rule();
+            Some(imm_encoding_rule?.size())
         }
 
         fn push_imm(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
@@ -685,9 +712,7 @@ pub mod instruction {
             } else {
                 return Ok(());
             };
-            let imm_encoding_rule = instruction.encoding().imm_rule();
-
-            let size = imm_encoding_rule.expect("internal error").size();
+            let size = self.imm_len(instruction).expect("internal error");
             let value = match imm {
                 Imm::Value(v) => v,
                 Imm::Label(l) => {
@@ -713,14 +738,14 @@ pub mod instruction {
             Ok(())
         }
 
-        fn push_disp(
-            self,
-            object: &mut Object,
-            instruction: &Instruction,
-            instruction_base: usize,
-        ) -> SResult<()> {
+        fn push_disp(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
             match self.modrm_disp(instruction) {
                 Some(disp) => {
+                    let imm_len = if let Some(v) = self.imm_len(instruction) {
+                        v
+                    } else {
+                        0
+                    };
                     let value = match disp {
                         Disp::Value(v) => v,
                         Disp::Label(l) => {
@@ -728,7 +753,7 @@ pub mod instruction {
                                 label: l,
                                 offset: object.code.len(),
                                 size: 4,
-                                rel_base: instruction_base,
+                                rel_base: object.code.len() + 4 + imm_len,
                             });
                             0
                         }
@@ -752,6 +777,8 @@ pub mod instruction {
         encoding: EncodingRule,
         expression: Expression,
     }
+
+    pub mod standard_instruction_list;
 
     impl Instruction {
         /// 命令がLine<'_>にマッチするか判定
@@ -784,7 +811,7 @@ pub mod instruction {
                     expression: expression,
                 })
             } else {
-                Err("unimplemented".to_string())
+                Err("invalid input".to_string())
             }
         }
     }
@@ -1287,7 +1314,6 @@ pub mod instruction {
                     }
                     OperandType::Rel16 => {
                         number_match_with(expr, i16::MIN as i128, i16::MAX as i128)
-                            || is_keyword(expr)
                     }
                     OperandType::Rel32 => {
                         number_match_with(expr, i32::MIN as i128, i32::MAX as i128)

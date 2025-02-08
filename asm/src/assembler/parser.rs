@@ -1,6 +1,6 @@
 use crate::{
     assembler::line::Line,
-    functions::{is_asm_command, is_instruction, is_label},
+    functions::{is_instruction, is_label, is_pseudo},
 };
 use std::{iter::Iterator, str::Lines};
 
@@ -51,7 +51,7 @@ impl<'a> Iterator for Parser<'a> {
         if is_label(line) {
             return Some(Line::Label(&line[..line.len() - 1]));
         }
-        if is_asm_command(line) {
+        if is_pseudo(line) {
             return Some(Line::Pseudo(line));
         }
         if is_instruction(line) {

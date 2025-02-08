@@ -130,13 +130,9 @@ pub fn is_keyword(mut word: &str) -> bool {
 }
 
 /// If this is a assembler command
-pub fn is_asm_command(mut line: &str) -> bool {
+pub fn is_pseudo(mut line: &str) -> bool {
     line = line.trim();
-    if !line.starts_with('.') {
-        return false;
-    }
-    line = &line[1..].trim();
-    is_keyword(line)
+    line.starts_with('.')
 }
 
 /// If this is a instruction

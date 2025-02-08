@@ -380,7 +380,9 @@ impl Register {
     }
 
     pub fn register_code_for_rm_ref_base(self) -> Result<RegisterCode, String> {
-        if self.operand_rm_ref_base() {
+        if self == Self::Rip {
+            Ok((Some(false), 5))
+        } else if self.operand_rm_ref_base() {
             self.register_code_for_opecode_register()
         } else {
             Err("invalid register".to_string())
