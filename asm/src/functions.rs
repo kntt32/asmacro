@@ -1,66 +1,69 @@
-use crate::{assembler::Label, register::Register};
+use crate::assembler::register::Register;
+use std::{mem::transmute, str::FromStr};
 use util::functions::{result_to_option, stoi};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Relocation<'a, T> {
-    Value(T),
-    Label(&'a str),
+pub type SResult<T> = Result<T, String>;
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Disp {
+    Value(i32),
+    Label(String),
 }
 
-impl<'a> Relocation<'a, i128> {
-    pub fn relocate_imm(self, labels: &[Label<'a>], offset: usize) -> Result<i128, String> {
-        match self {
-            Relocation::Value(v) => Ok(v),
-            Relocation::Label(l) => {
-                for i in labels {
-                    if i.name() == l {
-                        return Ok(i.offset() as i128 - offset as i128);
-                    }
-                }
-                Err("unknown label : ".to_string() + l)
+#[derive(Clone, Debug, PartialEq)]
+pub enum Imm {
+    Value(u64),
+    Label(String),
+}
+
+impl FromStr for Imm {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(v) = stoi(s) {
+            if i64::MIN as i128 <= v && v <= u64::MAX as i128 {
+                let value = (unsafe { transmute::<i128, u128>(v) } & 0xffff_ffff_ffff_ffff) as u64;
+                Ok(Imm::Value(value))
+            } else {
+                Err("imm value is too large".to_string())
             }
+        } else {
+            Ok(Imm::Label(s.to_string()))
         }
     }
 }
 
-impl<'a> Relocation<'a, i32> {
-    pub fn relocate_disp(self, label: &[Label<'a>], next_offset: usize) -> Result<i32, String> {
-        match self {
-            Relocation::Value(v) => Ok(v),
-            Relocation::Label(l) => {
-                for i in label {
-                    if i.name() == l {
-                        return Ok((i.offset() as isize - next_offset as isize) as i32);
-                    }
-                }
-                Err("unknown label : ".to_string() + l)
-            }
+pub fn parse_rm_anysize(expr: &str) -> Option<(Disp, Register, Option<(Register, u8)>)> {
+    for c in &['b', 'w', 'd', 'q'] {
+        if let Some(v) = parse_rm(expr, *c) {
+            return Some(v);
         }
     }
+    None
 }
 
 pub fn parse_rm(
     mut expr: &str,
     address_size: char,
-) -> Option<(Relocation<'_, i32>, Register, Option<(Register, u8)>)> {
+) -> Option<(Disp, Register, Option<(Register, u8)>)> {
     // disp[base, index, scale]
-    let disp: Relocation<'_, i32> = if !expr.starts_with('[') {
+    let disp: Disp = if !expr.starts_with('[') {
         let disp_expr = expr.split_once('[')?.0;
         if let Some(value) = stoi(disp_expr) {
             if i32::MIN as i128 <= value && value <= i32::MAX as i128 {
-                Relocation::Value(value as i32)
+                Disp::Value(value as i32)
             } else {
                 return None;
             }
         } else {
             if is_keyword(disp_expr) {
-                Relocation::Label(disp_expr)
+                Disp::Label(disp_expr.to_string())
             } else {
                 return None;
             }
         }
     } else {
-        Relocation::Value(0)
+        Disp::Value(0)
     };
 
     expr = expr.split_once('[')?.1.trim();
@@ -127,13 +130,9 @@ pub fn is_keyword(mut word: &str) -> bool {
 }
 
 /// If this is a assembler command
-pub fn is_asm_command(mut line: &str) -> bool {
+pub fn is_pseudo(mut line: &str) -> bool {
     line = line.trim();
-    if !line.starts_with('.') {
-        return false;
-    }
-    line = &line[1..].trim();
-    is_keyword(line)
+    line.starts_with('.')
 }
 
 /// If this is a instruction
@@ -143,16 +142,5 @@ pub fn is_instruction(line: &str) -> bool {
     let Some(mnemonic) = line_split.next() else {
         return false;
     };
-    if !is_keyword(mnemonic) {
-        return false;
-    }
-
-    let Some(_) = line_split.next() else {
-        return true;
-    };
-    let Some(_) = line_split.next() else {
-        return true;
-    };
-
-    line_split.next().is_none()
+    is_keyword(mnemonic)
 }

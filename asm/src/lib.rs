@@ -1,19 +1,23 @@
-/// Assembler
-pub mod assembler;
+/// アセンブラモジュール
+pub mod assembler {
+    /// Simple parser for assembly
+    pub mod parser;
 
-pub use assembler::*;
+    /// Line information of assembly
+    pub mod line;
 
-/// Simple parser for assembly
-pub mod parser;
+    /// Information of instructions
+    pub use line::instruction;
 
-/// Line information of assembly
-pub mod line;
+    /// Types of registers
+    pub mod register;
+}
 
-/// Information of instructions
-pub mod instruction;
-
-/// Types of registers
-pub mod register;
+/// リンカモジュール
+pub mod linker {
+    /// オブジェクト形式関連
+    pub mod object;
+}
 
 /// Functions
 pub mod functions;
