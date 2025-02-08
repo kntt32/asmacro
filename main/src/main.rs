@@ -8,6 +8,7 @@ use asm::linker::object::Object;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use std::process::Command;
 
 fn main() {
     /*
@@ -56,4 +57,6 @@ fn main() {
     let path = Path::new("./a.out");
     let mut file = File::create(path).expect("error");
     file.write(&elf_vec).expect("error");
+
+    Command::new("chmod").args(["u+x", "a.out"]).output().expect("failed to execute chmod");
 }
