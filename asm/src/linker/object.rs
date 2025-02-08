@@ -112,7 +112,7 @@ impl Object {
 
         let elf64ehdr = Elf64Ehdr {
             e_ident: Elf64Ehdr::EI_IDENT,
-            e_type: Elf64Ehdr::ET_EXEC,
+            e_type: Elf64Ehdr::ET_DYN,
             e_machine: Elf64Ehdr::EM_AMD64,
             e_version: 0x01,
             e_entry: load_base + entry_point as u64 + text_offset,
