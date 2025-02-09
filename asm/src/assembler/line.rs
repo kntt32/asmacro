@@ -1233,10 +1233,10 @@ pub mod instruction {
             fn from_str(s: &str) -> Result<OperandType, Self::Err> {
                 static ERROR_MESSAGE: &str = "invalid operand type";
                 Ok(match s {
-                    "al" => Self::Al,
-                    "ax" => Self::Ax,
-                    "eax" => Self::Eax,
-                    "rax" => Self::Rax,
+                    "al" | "AL" => Self::Al,
+                    "ax" | "AX" => Self::Ax,
+                    "eax" | "EAX" => Self::Eax,
+                    "rax" | "RAX" => Self::Rax,
                     "rel8" => Self::Rel8,
                     "rel16" => Self::Rel16,
                     "rel32" => Self::Rel32,
@@ -1248,10 +1248,10 @@ pub mod instruction {
                     "imm16" => Self::Imm16,
                     "imm32" => Self::Imm32,
                     "imm64" => Self::Imm64,
-                    "reg/mem8" => Self::Rm8,
-                    "reg/mem16" => Self::Rm16,
-                    "reg/mem32" => Self::Rm32,
-                    "reg/mem64" => Self::Rm64,
+                    "reg/mem8" | "mem8" => Self::Rm8,
+                    "reg/mem16" | "mem16" => Self::Rm16,
+                    "reg/mem32" | "mem32" => Self::Rm32,
+                    "reg/mem64" | "mem64" => Self::Rm64,
                     _ => return Err(ERROR_MESSAGE.to_string()),
                 })
             }

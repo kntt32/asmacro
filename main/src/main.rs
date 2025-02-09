@@ -58,5 +58,8 @@ fn main() {
     let mut file = File::create(path).expect("error");
     file.write(&elf_vec).expect("error");
 
-    Command::new("chmod").args(["u+x", "a.out"]).output().expect("failed to execute chmod");
+    Command::new("chmod")
+        .args(["u+x", "a.out"])
+        .output()
+        .expect("failed to execute chmod");
 }

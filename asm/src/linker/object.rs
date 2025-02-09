@@ -108,7 +108,7 @@ impl Object {
 
         let phdr_offset = size_of::<Elf64Ehdr>() as u64;
         let text_offset = phdr_offset + (size_of::<Elf64Phdr>() as u64) * 2;
-        let load_base = 0x400000u64;
+        let load_base = 0x1000u64;
 
         let elf64ehdr = Elf64Ehdr {
             e_ident: Elf64Ehdr::EI_IDENT,
