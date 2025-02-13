@@ -44,8 +44,8 @@ main_loop_begin:
     ret
     
 fibo:
-    mov edi, eax
-    add eax, esi
+    mov edi eax
+    add eax esi
     ret
 ```
 さらにELF形式に自力で変換することだ
