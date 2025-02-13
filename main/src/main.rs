@@ -48,7 +48,7 @@ fn main() {
     }
     println!("////");
     println!("{:?}", object);
-    let elf = object.elf("main").expect("error");
+    let elf = object.elf("main", false).expect("error");
     let elf_vec = elf.as_vec();
     for i in &elf_vec {
         print!("{:x} ", i);

@@ -347,7 +347,7 @@ pub mod instruction {
         assembler::register::{Register, RegisterCode},
         functions::{is_keyword, parse_rm, parse_rm_anysize, Disp, Imm, SResult},
     };
-    pub use encoding_rule::{EncodingRule, ImmRule, ModRmRule, OpecodeRegisterRule};
+    pub use encoding_rule::{Encoding, EncodingRule, ImmRule, ModRmRule, OpecodeRegisterRule};
     pub use expression::{Expression, OperandType};
     pub use operand_size::OperandSize;
     use std::{
@@ -367,13 +367,40 @@ pub mod instruction {
                 return Err("unknown instruction".to_string());
             };
 
+            let location_base = object.location.len();
+            if let Some(v) = self.legacy_prefix_x66(instruction) {
+                object.code.push(v);
+            }
+            if let Some(v) = self.rex_prefix(instruction) {
+                object.code.push(v);
+            }
+            for i in instruction.encoding().rules() {
+                match i {
+                    EncodingRule::Code(v) => object.code.push(*v),
+                    EncodingRule::AddRegister(v) => self.add_opecode_register(object, instruction, *v)?,
+                    EncodingRule::ModRm(v) => self.push_modrm(object, instruction, *v)?,
+                    EncodingRule::Imm(v) => self.push_imm(object, instruction, *v)?,
+                }
+            }
+
+            for i in location_base .. object.location.len() {
+                object.location[i].rel_base = object.code.len();
+            }
+
+            /*
+            pub enum EncodingRule {
+            Code(u8),
+            AddRegister(OpecodeRegisterRule),
+            ModRm(ModRmRule),
+            Imm(ImmRule),
+            }
             self.push_legacy_prefix(object, instruction)?;
             self.push_rex_prefix(object, instruction)?;
             self.push_opecode(object, instruction)?;
             self.push_modrm(object, instruction)?;
             self.push_sib(object, instruction)?;
             self.push_disp(object, instruction)?;
-            self.push_imm(object, instruction)?;
+            self.push_imm(object, instruction)?;*/
             Ok(())
         }
 
@@ -396,13 +423,14 @@ pub mod instruction {
             }
         }
 
-        fn push_legacy_prefix(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
+        fn legacy_prefix_x66(self, instruction: &Instruction) -> Option<u8> {
             if self.prefix_x66_exist(instruction) {
-                object.code.push(0x66);
+                Some(0x66)
+            }else {
+                None
             }
-            Ok(())
         }
-
+        
         fn rex_prefix_is_required(self, instruction: &Instruction) -> bool {
             let encoding = instruction.encoding();
             let expression = instruction.expression();
@@ -425,11 +453,14 @@ pub mod instruction {
         }
 
         fn rex_r(self, instruction: &Instruction) -> u8 {
-            if let Some(Ok((Some(true), _))) = self.opecode_register_code(instruction) {
-                0b1
-            } else if let Some(Ok((Some(true), _))) = self.modrm_register_code(instruction) {
+            if let Some(Ok((Some(true), _))) = self.register_operand_code(instruction) {
                 0b1
             } else {
+                if let Some(modrm_rule) = instruction.encoding().modrm_rule() {
+                if let Ok((Some(true), _)) = self.modrm_register_code(instruction, modrm_rule) {
+                    return 0b1;
+                }
+            }
                 0b0
             }
         }
@@ -450,7 +481,7 @@ pub mod instruction {
             }
         }
 
-        fn push_rex_prefix(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
+        fn rex_prefix(self, instruction: &Instruction) -> Option<u8> {
             let rex_w = self.rex_w(instruction);
             let rex_r = self.rex_r(instruction);
             let rex_b = self.rex_b(instruction);
@@ -458,52 +489,58 @@ pub mod instruction {
 
             if rex_w | rex_r | rex_x | rex_b != 0 {
                 let rex_prefix = 0x40 | (rex_w << 3) | (rex_r << 2) | (rex_x << 1) | rex_b;
-                object.code.push(rex_prefix);
-            }
-
-            Ok(())
-        }
-
-        fn opecode_register_code(self, instruction: &Instruction) -> Option<SResult<RegisterCode>> {
-            match instruction.encoding().opecode_register_rule() {
-                Some(_) => match self.register_operand(instruction)?.parse::<Register>() {
-                    Ok(r) => Some(r.register_code_for_opecode_register()),
-                    Err(e) => Some(Err(e)),
-                },
-                None => None,
+                Some(rex_prefix)
+            }else {
+                None
             }
         }
-
-        fn push_opecode(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
-            let opecode = instruction.encoding().opecode();
-            let register_code = if let Some(v) = self.opecode_register_code(instruction) {
-                v?.1
-            } else {
-                0
-            };
-
-            for i in 0..opecode.len() {
-                object.code.push(opecode[i]);
+        
+        fn add_opecode_register(self, object: &mut Object, instruction: &Instruction, rule: OpecodeRegisterRule) -> SResult<()> {
+            let register_code = self.register_operand_code(instruction).expect("internal error")?;
+            if object.code.len() == 0 {
+                panic!("internal error");
             }
             let object_code_len = object.code.len();
-            object.code[object_code_len - 1] += register_code;
+            object.code[object_code_len - 1] += register_code.1;
             Ok(())
         }
 
-        fn modrm_register_code(self, instruction: &Instruction) -> Option<SResult<RegisterCode>> {
-            let encoding_rule = instruction.encoding();
+        fn register_operand_code(self, instruction: &Instruction) -> Option<SResult<RegisterCode>> {
+            match self.register_operand(instruction)?.parse::<Register>() {
+                Ok(r) => Some(r.register_code_for_opecode_register()),
+                Err(e) => Some(Err(e))
+            }
+        }
 
-            match encoding_rule.modrm_rule() {
-                None => None,
-                Some(ModRmRule::R) => {
+        fn push_modrm(self, object: &mut Object, instruction: &Instruction, rule: ModRmRule) -> SResult<()> {
+            let mode = self.modrm_mode(instruction).expect("internal error");
+            let (_, reg) = self
+                .modrm_register_code(instruction, rule)?;
+            let rm_base = if self.sib_exist(instruction) {
+                0b100
+            } else {
+                self.modrm_base_register_code(instruction)
+                    .expect("internal error")?
+                    .1
+            };
+            let modrm = (mode << 6) | (reg << 3) | rm_base;
+            object.code.push(modrm);
+            self.push_sib(object, instruction)?;
+            self.push_disp(object, instruction)?;
+            Ok(())
+        }
+
+        fn modrm_register_code(self, instruction: &Instruction, rule: ModRmRule) -> SResult<RegisterCode> {
+            match rule {
+                ModRmRule::R => {
                     let register = self
                         .register_operand(instruction)
                         .expect("internal error")
                         .parse::<Register>()
                         .expect("internal error");
-                    Some(register.register_code_for_opecode_register())
+                    register.register_code_for_opecode_register()
                 }
-                Some(ModRmRule::Dight(i)) => Some(Ok((None, i))),
+                ModRmRule::Dight(i) => Ok((None, i)),
             }
         }
 
@@ -654,27 +691,6 @@ pub mod instruction {
             instruction.encoding().modrm_rule().is_some()
         }
 
-        fn push_modrm(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
-            if self.modrm_exist(instruction) {
-                let Some(mode) = self.modrm_mode(instruction) else {
-                    return Err("internal error".to_string());
-                };
-                let (_, reg) = self
-                    .modrm_register_code(instruction)
-                    .expect("internal error")?;
-                let rm_base = if self.sib_exist(instruction) {
-                    0b100
-                } else {
-                    self.modrm_base_register_code(instruction)
-                        .expect("internal error")?
-                        .1
-                };
-                let modrm = (mode << 6) | (reg << 3) | rm_base;
-                object.code.push(modrm);
-            }
-            Ok(())
-        }
-
         fn sib_exist(self, instruction: &Instruction) -> bool {
             let modrm_rm_base = self.modrm_rm_base(instruction);
             let modrm_rm_index = self.modrm_rm_index(instruction);
@@ -701,51 +717,10 @@ pub mod instruction {
             Ok(())
         }
 
-        fn imm_len(self, instruction: &Instruction) -> Option<usize> {
-            let imm_encoding_rule = instruction.encoding().imm_rule();
-            Some(imm_encoding_rule?.size())
-        }
-
-        fn push_imm(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
-            let imm: Imm = if let Some(s) = self.imm_operand(instruction) {
-                s.parse()?
-            } else {
-                return Ok(());
-            };
-            let size = self.imm_len(instruction).expect("internal error");
-            let value = match imm {
-                Imm::Value(v) => v,
-                Imm::Label(l) => {
-                    object.location.push(Location {
-                        label: l,
-                        offset: object.code.len(),
-                        size: size,
-                        rel_base: object.code.len() + size,
-                    });
-                    0
-                }
-            };
-            for i in 0..8 {
-                let target = ((value >> (i * 8)) & 0xff) as u8;
-                if i < size {
-                    object.code.push(target);
-                } else {
-                    if target != 0x00 && target != 0xff {
-                        return Err("too large imm operand".to_string());
-                    }
-                }
-            }
-            Ok(())
-        }
 
         fn push_disp(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
             match self.modrm_disp(instruction) {
                 Some(disp) => {
-                    let imm_len = if let Some(v) = self.imm_len(instruction) {
-                        v
-                    } else {
-                        0
-                    };
                     let value = match disp {
                         Disp::Value(v) => v,
                         Disp::Label(l) => {
@@ -753,7 +728,7 @@ pub mod instruction {
                                 label: l,
                                 offset: object.code.len(),
                                 size: 4,
-                                rel_base: object.code.len() + 4 + imm_len,
+                                rel_base: 0,
                             });
                             0
                         }
@@ -769,12 +744,35 @@ pub mod instruction {
                 None => Ok(()),
             }
         }
+        
+        fn push_imm(self, object: &mut Object, instruction: &Instruction, rule: ImmRule) -> SResult<()> {
+            let imm_operand_index = instruction.expression().get_operand_index_by_type(rule.operand_type()).expect("internal error");
+            let imm: Imm = self.operands()[imm_operand_index].parse()?;
+            let size = rule.operand_type().size().value();
+            let value = match imm {
+                Imm::Value(v) => v,
+                Imm::Label(l) => {
+                    object.location.push(Location {
+                        label: l,
+                        offset: object.code.len(),
+                        size: size,
+                        rel_base: 0,
+                    });
+                    0
+                }
+            };
+            for i in 0..size {
+                let target = ((value >> (i * 8)) & 0xff) as u8;
+                object.code.push(target);
+            }
+            Ok(())
+        }
     }
 
     ///命令の詳細を記述する構造体
     #[derive(Clone, Debug)]
     pub struct Instruction {
-        encoding: EncodingRule,
+        encoding: Encoding,
         expression: Expression,
     }
 
@@ -787,7 +785,7 @@ pub mod instruction {
         }
 
         /// エンコードルール取得
-        pub const fn encoding(&self) -> &EncodingRule {
+        pub const fn encoding(&self) -> &Encoding {
             &self.encoding
         }
 
@@ -819,40 +817,49 @@ pub mod instruction {
     /// エンコードルールに関するモジュール
     pub mod encoding_rule {
         use super::*;
-        /// エンコードルール
         #[derive(Clone, Debug)]
-        pub struct EncodingRule {
-            opecode: Vec<u8>,
-            modrm: Option<ModRmRule>,
-            imm: Option<ImmRule>,
-            opecode_register: Option<OpecodeRegisterRule>,
+        pub struct Encoding {
+            rules: Vec<EncodingRule>,
             default_operand_size: OperandSize,
         }
 
-        impl EncodingRule {
-            /// オペコード取得
-            pub fn opecode(&self) -> &[u8] {
-                &self.opecode
-            }
+        #[derive(Clone, Copy, Debug)]
+        pub enum EncodingRule {
+            Code(u8),
+            AddRegister(OpecodeRegisterRule),
+            ModRm(ModRmRule),
+            Imm(ImmRule),
+        }
 
-            /// レジスタのオペコードへの埋め込みルール取得
-            pub fn opecode_register_rule(&self) -> Option<OpecodeRegisterRule> {
-                self.opecode_register
-            }
-
-            /// ModRmのエンコードルール取得
-            pub fn modrm_rule(&self) -> Option<ModRmRule> {
-                self.modrm
-            }
-
-            /// 即値のエンコードルール取得
-            pub fn imm_rule(&self) -> Option<ImmRule> {
-                self.imm
+        impl Encoding {
+            /// ルール取得
+            pub fn rules(&self) -> &[EncodingRule] {
+                &self.rules
             }
 
             /// デフォルトオペランドサイズ取得
             pub fn default_operand_size(&self) -> OperandSize {
                 self.default_operand_size
+            }
+
+            /// AddRegisterのエンコードルール取得
+            pub fn add_register_rule(&self) -> Option<OpecodeRegisterRule> {
+                for i in &self.rules {
+                    if let EncodingRule::AddRegister(i) = i {
+                        return Some(*i);
+                    }
+                }
+                None
+            }
+
+            /// ModRmのエンコードルール取得
+            pub fn modrm_rule(&self) -> Option<ModRmRule> {
+                for i in &self.rules {
+                    if let EncodingRule::ModRm(i) = i {
+                        return Some(*i);
+                    }
+                }
+                None
             }
 
             fn parse_opecode_rule(target: &str) -> Result<u8, String> {
@@ -868,7 +875,7 @@ pub mod instruction {
             }
         }
 
-        impl FromStr for EncodingRule {
+        impl FromStr for Encoding {
             type Err = String;
 
             // ADC reg/mem64 reg64 , 11 /r
@@ -876,24 +883,21 @@ pub mod instruction {
                 static ERROR_MESSAGE: &str = "invalid encoding rule";
 
                 let splited_s: Vec<&str> = s.split(' ').collect();
-                let mut encoding = EncodingRule {
-                    opecode: Vec::new(),
-                    modrm: None,
-                    imm: None,
-                    opecode_register: None,
+                let mut encoding = Encoding {
+                    rules: Vec::new(),
                     default_operand_size: OperandSize::Od,
                 };
 
                 for i in 0..splited_s.len() {
                     let target = splited_s[i].trim();
                     if let Ok(v) = Self::parse_opecode_rule(target) {
-                        encoding.opecode.push(v);
+                        encoding.rules.push(EncodingRule::Code(v));
                     } else if let Ok(v) = target.parse::<ModRmRule>() {
-                        encoding.modrm = Some(v);
+                        encoding.rules.push(EncodingRule::ModRm(v));
                     } else if let Ok(v) = target.parse::<ImmRule>() {
-                        encoding.imm = Some(v);
+                        encoding.rules.push(EncodingRule::Imm(v));
                     } else if let Ok(v) = target.parse::<OpecodeRegisterRule>() {
-                        encoding.opecode_register = Some(v);
+                        encoding.rules.push(EncodingRule::AddRegister(v));
                     } else if let Ok(v) = target.parse::<OperandSize>() {
                         encoding.default_operand_size = v;
                     } else {
@@ -1161,9 +1165,6 @@ pub mod instruction {
                     OperandType::Imm16,
                     OperandType::Imm32,
                     OperandType::Imm64,
-                    OperandType::Rel8,
-                    OperandType::Rel16,
-                    OperandType::Rel32,
                 ])
             }
 
@@ -1210,9 +1211,6 @@ pub mod instruction {
             Ax,
             Eax,
             Rax,
-            Rel8,
-            Rel16,
-            Rel32,
             R8,
             R16,
             R32,
@@ -1237,16 +1235,13 @@ pub mod instruction {
                     "ax" | "AX" => Self::Ax,
                     "eax" | "EAX" => Self::Eax,
                     "rax" | "RAX" => Self::Rax,
-                    "rel8" => Self::Rel8,
-                    "rel16" => Self::Rel16,
-                    "rel32" => Self::Rel32,
                     "reg8" => Self::R8,
                     "reg16" => Self::R16,
                     "reg32" => Self::R32,
                     "reg64" => Self::R64,
-                    "imm8" => Self::Imm8,
-                    "imm16" => Self::Imm16,
-                    "imm32" => Self::Imm32,
+                    "imm8" | "rel8" => Self::Imm8,
+                    "imm16" | "rel16" => Self::Imm16,
+                    "imm32" | "rel32" => Self::Imm32,
                     "imm64" => Self::Imm64,
                     "reg/mem8" | "mem8" => Self::Rm8,
                     "reg/mem16" | "mem16" => Self::Rm16,
@@ -1265,9 +1260,6 @@ pub mod instruction {
                     OperandType::Ax => OperandSize::Ow,
                     OperandType::Eax => OperandSize::Od,
                     OperandType::Rax => OperandSize::Oq,
-                    OperandType::Rel8 => OperandSize::Ob,
-                    OperandType::Rel16 => OperandSize::Ow,
-                    OperandType::Rel32 => OperandSize::Od,
                     OperandType::R8 => OperandSize::Ob,
                     OperandType::R16 => OperandSize::Ow,
                     OperandType::R32 => OperandSize::Od,
@@ -1308,27 +1300,16 @@ pub mod instruction {
                     OperandType::Ax => expr == "ax",
                     OperandType::Eax => expr == "eax",
                     OperandType::Rax => expr == "rax",
-                    OperandType::Rel8 => {
-                        number_match_with(expr, i8::MIN as i128, i8::MAX as i128)
-                            || is_keyword(expr)
-                    }
-                    OperandType::Rel16 => {
-                        number_match_with(expr, i16::MIN as i128, i16::MAX as i128)
-                    }
-                    OperandType::Rel32 => {
-                        number_match_with(expr, i32::MIN as i128, i32::MAX as i128)
-                            || is_keyword(expr)
-                    }
                     OperandType::R8 => register_match_with(expr, Register::operand_r8),
                     OperandType::R16 => register_match_with(expr, Register::operand_r16),
                     OperandType::R32 => register_match_with(expr, Register::operand_r32),
                     OperandType::R64 => register_match_with(expr, Register::operand_r64),
-                    OperandType::Imm8 => number_match_with(expr, i8::MIN as i128, u8::MAX as i128),
+                    OperandType::Imm8 => number_match_with(expr, i8::MIN as i128, u8::MAX as i128) || is_keyword(expr),
                     OperandType::Imm16 => {
-                        number_match_with(expr, i16::MIN as i128, u16::MAX as i128)
+                        number_match_with(expr, i16::MIN as i128, u16::MAX as i128) || is_keyword(expr)
                     }
                     OperandType::Imm32 => {
-                        number_match_with(expr, i32::MIN as i128, u32::MAX as i128)
+                        number_match_with(expr, i32::MIN as i128, u32::MAX as i128) || is_keyword(expr)
                     }
                     OperandType::Imm64 => {
                         number_match_with(expr, i64::MIN as i128, u64::MAX as i128)
