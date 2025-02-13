@@ -97,7 +97,7 @@ impl Object {
         Ok(())
     }
 
-    pub fn elf(mut self, entry_point: &str) -> SResult<Elf> {
+    pub fn elf(mut self, entry_point: &str, dyn_binary: bool) -> SResult<Elf> {
         self.locate()?;
 
         let entry_point = if let Some(l) = self.get_label(entry_point) {
@@ -108,11 +108,12 @@ impl Object {
 
         let phdr_offset = size_of::<Elf64Ehdr>() as u64;
         let text_offset = phdr_offset + (size_of::<Elf64Phdr>() as u64) * 2;
-        let load_base = 0x1000u64;
+        let load_base = if dyn_binary { 0x1000u64 } else { 0x40000u64 };
+        let elf_type = if dyn_binary { Elf64Ehdr::ET_DYN} else {Elf64Ehdr::ET_EXEC };
 
         let elf64ehdr = Elf64Ehdr {
             e_ident: Elf64Ehdr::EI_IDENT,
-            e_type: Elf64Ehdr::ET_DYN,
+            e_type: elf_type,
             e_machine: Elf64Ehdr::EM_AMD64,
             e_version: 0x01,
             e_entry: load_base + entry_point as u64 + text_offset,
