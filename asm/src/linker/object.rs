@@ -109,7 +109,11 @@ impl Object {
         let phdr_offset = size_of::<Elf64Ehdr>() as u64;
         let text_offset = phdr_offset + (size_of::<Elf64Phdr>() as u64) * 2;
         let load_base = if dyn_binary { 0x1000u64 } else { 0x40000u64 };
-        let elf_type = if dyn_binary { Elf64Ehdr::ET_DYN} else {Elf64Ehdr::ET_EXEC };
+        let elf_type = if dyn_binary {
+            Elf64Ehdr::ET_DYN
+        } else {
+            Elf64Ehdr::ET_EXEC
+        };
 
         let elf64ehdr = Elf64Ehdr {
             e_ident: Elf64Ehdr::EI_IDENT,

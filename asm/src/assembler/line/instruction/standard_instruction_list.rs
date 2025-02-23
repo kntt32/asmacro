@@ -387,7 +387,10 @@ impl Instruction {
         let mut vec = Vec::new();
         for line in Self::STANDARD.lines() {
             if !line.trim().is_empty() {
-                vec.push(line.parse().expect(&format!("internal error: \"{}\"", line)));
+                vec.push(
+                    line.parse()
+                        .expect(&format!("internal error: \"{}\"", line)),
+                );
             }
         }
         vec

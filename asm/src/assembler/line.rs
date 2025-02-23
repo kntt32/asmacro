@@ -377,13 +377,15 @@ pub mod instruction {
             for i in instruction.encoding().rules() {
                 match i {
                     EncodingRule::Code(v) => object.code.push(*v),
-                    EncodingRule::AddRegister(v) => self.add_opecode_register(object, instruction, *v)?,
+                    EncodingRule::AddRegister(v) => {
+                        self.add_opecode_register(object, instruction, *v)?
+                    }
                     EncodingRule::ModRm(v) => self.push_modrm(object, instruction, *v)?,
                     EncodingRule::Imm(v) => self.push_imm(object, instruction, *v)?,
                 }
             }
 
-            for i in location_base .. object.location.len() {
+            for i in location_base..object.location.len() {
                 object.location[i].rel_base = object.code.len();
             }
 
@@ -426,11 +428,11 @@ pub mod instruction {
         fn legacy_prefix_x66(self, instruction: &Instruction) -> Option<u8> {
             if self.prefix_x66_exist(instruction) {
                 Some(0x66)
-            }else {
+            } else {
                 None
             }
         }
-        
+
         fn rex_prefix_is_required(self, instruction: &Instruction) -> bool {
             let encoding = instruction.encoding();
             let expression = instruction.expression();
@@ -457,10 +459,10 @@ pub mod instruction {
                 0b1
             } else {
                 if let Some(modrm_rule) = instruction.encoding().modrm_rule() {
-                if let Ok((Some(true), _)) = self.modrm_register_code(instruction, modrm_rule) {
-                    return 0b1;
+                    if let Ok((Some(true), _)) = self.modrm_register_code(instruction, modrm_rule) {
+                        return 0b1;
+                    }
                 }
-            }
                 0b0
             }
         }
@@ -490,13 +492,20 @@ pub mod instruction {
             if rex_w | rex_r | rex_x | rex_b != 0 {
                 let rex_prefix = 0x40 | (rex_w << 3) | (rex_r << 2) | (rex_x << 1) | rex_b;
                 Some(rex_prefix)
-            }else {
+            } else {
                 None
             }
         }
-        
-        fn add_opecode_register(self, object: &mut Object, instruction: &Instruction, rule: OpecodeRegisterRule) -> SResult<()> {
-            let register_code = self.register_operand_code(instruction).expect("internal error")?;
+
+        fn add_opecode_register(
+            self,
+            object: &mut Object,
+            instruction: &Instruction,
+            rule: OpecodeRegisterRule,
+        ) -> SResult<()> {
+            let register_code = self
+                .register_operand_code(instruction)
+                .expect("internal error")?;
             if object.code.len() == 0 {
                 panic!("internal error");
             }
@@ -508,14 +517,18 @@ pub mod instruction {
         fn register_operand_code(self, instruction: &Instruction) -> Option<SResult<RegisterCode>> {
             match self.register_operand(instruction)?.parse::<Register>() {
                 Ok(r) => Some(r.register_code_for_opecode_register()),
-                Err(e) => Some(Err(e))
+                Err(e) => Some(Err(e)),
             }
         }
 
-        fn push_modrm(self, object: &mut Object, instruction: &Instruction, rule: ModRmRule) -> SResult<()> {
+        fn push_modrm(
+            self,
+            object: &mut Object,
+            instruction: &Instruction,
+            rule: ModRmRule,
+        ) -> SResult<()> {
             let mode = self.modrm_mode(instruction).expect("internal error");
-            let (_, reg) = self
-                .modrm_register_code(instruction, rule)?;
+            let (_, reg) = self.modrm_register_code(instruction, rule)?;
             let rm_base = if self.sib_exist(instruction) {
                 0b100
             } else {
@@ -530,7 +543,11 @@ pub mod instruction {
             Ok(())
         }
 
-        fn modrm_register_code(self, instruction: &Instruction, rule: ModRmRule) -> SResult<RegisterCode> {
+        fn modrm_register_code(
+            self,
+            instruction: &Instruction,
+            rule: ModRmRule,
+        ) -> SResult<RegisterCode> {
             match rule {
                 ModRmRule::R => {
                     let register = self
@@ -717,7 +734,6 @@ pub mod instruction {
             Ok(())
         }
 
-
         fn push_disp(self, object: &mut Object, instruction: &Instruction) -> SResult<()> {
             match self.modrm_disp(instruction) {
                 Some(disp) => {
@@ -744,9 +760,17 @@ pub mod instruction {
                 None => Ok(()),
             }
         }
-        
-        fn push_imm(self, object: &mut Object, instruction: &Instruction, rule: ImmRule) -> SResult<()> {
-            let imm_operand_index = instruction.expression().get_operand_index_by_type(rule.operand_type()).expect("internal error");
+
+        fn push_imm(
+            self,
+            object: &mut Object,
+            instruction: &Instruction,
+            rule: ImmRule,
+        ) -> SResult<()> {
+            let imm_operand_index = instruction
+                .expression()
+                .get_operand_index_by_type(rule.operand_type())
+                .expect("internal error");
             let imm: Imm = self.operands()[imm_operand_index].parse()?;
             let size = rule.operand_type().size().value();
             let value = match imm {
@@ -1308,12 +1332,17 @@ pub mod instruction {
                     OperandType::R16 => register_match_with(expr, Register::operand_r16),
                     OperandType::R32 => register_match_with(expr, Register::operand_r32),
                     OperandType::R64 => register_match_with(expr, Register::operand_r64),
-                    OperandType::Imm8 => number_match_with(expr, i8::MIN as i128, u8::MAX as i128) || is_keyword(expr),
+                    OperandType::Imm8 => {
+                        number_match_with(expr, i8::MIN as i128, u8::MAX as i128)
+                            || is_keyword(expr)
+                    }
                     OperandType::Imm16 => {
-                        number_match_with(expr, i16::MIN as i128, u16::MAX as i128) || is_keyword(expr)
+                        number_match_with(expr, i16::MIN as i128, u16::MAX as i128)
+                            || is_keyword(expr)
                     }
                     OperandType::Imm32 => {
-                        number_match_with(expr, i32::MIN as i128, u32::MAX as i128) || is_keyword(expr)
+                        number_match_with(expr, i32::MIN as i128, u32::MAX as i128)
+                            || is_keyword(expr)
                     }
                     OperandType::Imm64 => {
                         number_match_with(expr, i64::MIN as i128, u64::MAX as i128)
