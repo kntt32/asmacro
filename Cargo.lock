@@ -14,8 +14,13 @@ name = "main"
 version = "0.1.0"
 dependencies = [
  "asm",
+ "preproc",
  "util",
 ]
+
+[[package]]
+name = "preproc"
+version = "0.1.0"
 
 [[package]]
 name = "proc-macro2"

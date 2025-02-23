@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 util = { path = "../util" }
 asm = { path = "../asm" }
+preproc = { path = "../preproc" }
