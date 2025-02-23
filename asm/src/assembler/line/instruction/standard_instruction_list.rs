@@ -191,10 +191,171 @@ impl Instruction {
             DIV reg/mem32,F7 /6
             DIV reg/mem64,F7 /6
 
+            ENTER imm16 imm8,C8 iw ib
+
             IDIV reg/mem8,F6 /7
             IDIV reg/mem16,F7 /7
             IDIV reg/mem32,F7 /7
             IDIV reg/mem64,F7 /7
+
+            IMUL reg/mem8,F6 /5
+            IMUL reg/mem16,F7 /5
+            IMUL reg/mem32,F7 /5
+            IMUL reg/mem64,F7 /5
+            IMUL reg16 reg/mem16,0F AF /r
+            IMUL reg32 reg/mem32,0F AF /r
+            IMUL reg64 reg/mem64,0F AF /r
+            IMUL reg16 reg/mem16 imm8,6B /r ib
+
+            IN AL imm8,E4 ib
+            IN EAX imm8,E5 ib
+            IN AL DX,EC
+            IN AX DX,ED
+            IN EAX DX,ED
+
+            INC reg/mem8,FE /0
+            INC reg/mem16,FF /0
+            INC reg/mem32,FF /0
+            INC reg/mem64,FF /0
+            INC reg16,40 +rw
+            INC reg32,40 +rd
+
+            INS mem8 DX,6C
+            INS mem16 DX,6D
+            INS mem32 DX,6D
+            INSB,6C
+            INSW,6D
+            INSD,6D
+
+            INT imm8,CD ib
+
+            JO rel8,70 ib
+            JO rel16,0F 80 iw
+            JO rel32,0F 80 id
+
+            JNO rel8,71 ib
+            JNO rel16,0F 81 iw
+            JNO rel32,0F 81 id
+
+            JB rel8,72 ib
+            JB rel16,0F 82 iw
+            JB rel32,0F 82 id
+
+            JC rel8,72 cb
+            JC rel16,0F 82 cw
+            JC rel32,0F 82 cd
+
+            JNAE rel8,72 cb
+            JNAE rel16,0F 82 cw
+            JNAE rel32,0F 82 cd
+
+            JNB rel8, 73 cb
+            JNB rel16,0F 83 cw
+            JNB rel32,0F 83 cd
+
+            JNC rel8off,73 cb
+            JNC rel16off,0F 83 cw
+            JNC rel32off,0F 83 cd
+
+            JAE rel8off,73 cb
+            JAE rel16off,0F 83 cw
+            JAE rel32off,0F 83 cd
+
+            JZ rel8off,74 cb
+            JZ rel16off,0F 84 cw
+            JZ rel32off,0F 84 cd
+
+            JE rel8off,74 cb
+            JE rel16off,0F 84 cw
+            JE rel32off,0F 84 cd
+
+            JNZ rel8off,75 cb
+            JNZ rel16off,0F 85 cw
+            JNZ rel32off,0F 85 cd
+
+            JNE rel8off,75 cb
+            JNE rel16off,0F 85 cw
+            JNE rel32off,0F 85 cd
+
+            JBE rel8off,76 cb
+            JBE rel16off,0F 86 cw
+            JBE rel32off,0F 86 cd
+
+            JNA rel8off,76 cb
+            JNA rel16off,0F 86 cw
+            JNA rel32off,0F 86 cd
+
+            JNBE rel8off,77 cb
+            JNBE rel16off,0F 87 cw
+            JNBE rel32off,0F 87 cd
+
+            JA rel8off,77 cb
+            JA rel16off,0F 87 cw
+            JA rel32off,0F 87 cd
+
+            JS rel8off,78 cb
+            JS rel16off,0F 88 cw
+            JS rel32off,0F 88 cd
+
+            JNS rel8off,79 cb
+            JNS rel16off,0F 89 cw
+            JNS rel32off,0F 89 cd
+
+            JP rel8off,7A cb
+            JP rel16off,0F 8A cw
+            JP rel32off,0F 8A cd
+
+            JPE rel8off,7A cb
+            JPE rel16off,0F 8A cw
+            JPE rel32off,0F 8A cd
+
+            JNP rel8off,7B cb
+            JNP rel16off,0F 8B cw
+            JNP rel32off,0F 8B cd
+
+            JPO rel8off,7B cb
+            JPO rel16off,0F 8B cw
+            JPO rel32off,0F 8B cd
+
+            JL rel8off,7C cb
+            JL rel16off,0F 8C cw
+            JL rel32off,0F 8C cd
+            JNGE rel8off,7C cb
+            JNGE rel16off,0F 8C cw
+            JNGE rel32off,0F 8C cd
+
+            JNL rel8off,7D cb
+            JNL rel16off,0F 8D cw
+            JNL rel32off,0F 8D cd
+
+            JGE rel8off,7D cb
+            JGE rel16off,0F 8D cw
+            JGE rel32off,0F 8D cd
+
+            JLE rel8off,7E cb
+            JLE rel16off,0F 8E cw
+            JLE rel32off,0F 8E cd
+
+            JNG rel8off,7E cb
+            JNG rel16off,0F 8E cw
+            JNG rel32off,0F 8E cd
+
+            JNLE rel8off,7F cb
+            JNLE rel16off,0F 8F cw
+            JNLE rel32off,0F 8F cd
+
+            JG rel8off,7F cb
+            JG rel16off,0F 8F cw
+            JG rel32off,0F 8F cd
+
+            JMP rel8off,EB
+            JMP rel16off,E9 cw
+            JMP rel32off,E9 cd
+            JMP reg/mem16,FF /4
+            JMP reg/mem32,FF /4
+            JMP reg/mem64,FF /4
+
+            LAHF,9F
 
             LEA reg16 reg/mem16,8D /r
             LEA reg32 reg/mem32,8D /r
