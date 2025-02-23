@@ -113,10 +113,6 @@ impl Instruction {
 
             CLD,FC
 
-            LEA reg16 reg/mem16,8D /r
-            LEA reg32 reg/mem32,8D /r
-            LEA reg64 reg/mem64,8D /r
-
             CLFLUSH reg/mem8,0F AE /7
             CLFLUSHOPT reg/mem8,66 0F AE /7
             CLWB,66 0F AE /6
@@ -199,6 +195,10 @@ impl Instruction {
             IDIV reg/mem16,F7 /7
             IDIV reg/mem32,F7 /7
             IDIV reg/mem64,F7 /7
+
+            LEA reg16 reg/mem16,8D /r
+            LEA reg32 reg/mem32,8D /r
+            LEA reg64 reg/mem64,8D /r
 
             MOV reg/mem8 reg8,88 /r
             MOV reg/mem16 reg16,89 /r
