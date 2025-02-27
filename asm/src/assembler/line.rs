@@ -1231,6 +1231,10 @@ pub mod instruction {
         /// オペランドタイプ
         #[derive(Clone, Copy, Debug, PartialEq)]
         pub enum OperandType {
+            B,
+            W,
+            D,
+            Q,
             Al,
             Ax,
             Eax,
@@ -1256,6 +1260,10 @@ pub mod instruction {
             fn from_str(s: &str) -> Result<OperandType, Self::Err> {
                 static ERROR_MESSAGE: &str = "invalid operand type";
                 Ok(match s {
+                    "b" | "B" => Self::B,
+                    "w" | "W" => Self::W,
+                    "d" | "D" => Self::D,
+                    "q" | "Q" => Self::Q,
                     "al" | "AL" => Self::Al,
                     "ax" | "AX" => Self::Ax,
                     "eax" | "EAX" => Self::Eax,
@@ -1282,6 +1290,10 @@ pub mod instruction {
             /// サイズ取得
             pub const fn size(self) -> OperandSize {
                 match self {
+                    OperandType::B => OperandSize::Ob,
+                    OperandType::W => OperandSize::Ow,
+                    OperandType::D => OperandSize::Od,
+                    OperandType::Q => OperandSize::Oq,
                     OperandType::Al => OperandSize::Ob,
                     OperandType::Ax => OperandSize::Ow,
                     OperandType::Eax => OperandSize::Od,
@@ -1304,6 +1316,10 @@ pub mod instruction {
 
             pub const fn operand_size(self) -> Option<OperandSize> {
                 Some(match self {
+                    OperandType::B => OperandSize::Ob,
+                    OperandType::W => OperandSize::Ow,
+                    OperandType::D => OperandSize::Od,
+                    OperandType::Q => OperandSize::Oq,
                     OperandType::Al => OperandSize::Ob,
                     OperandType::Ax => OperandSize::Ow,
                     OperandType::Eax => OperandSize::Od,
@@ -1323,6 +1339,10 @@ pub mod instruction {
             /// 表現がオペランドタイプにマッチするか判定
             pub fn match_with(self, expr: &str) -> bool {
                 match self {
+                    OperandType::B => expr == "b",
+                    OperandType::W => expr == "w",
+                    OperandType::D => expr == "d",
+                    OperandType::Q => expr == "q",
                     OperandType::Al => expr == "al",
                     OperandType::Ax => expr == "ax",
                     OperandType::Eax => expr == "eax",
