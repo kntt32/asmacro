@@ -1,34 +1,39 @@
-//use asm::assembler::Asm;
-// use util::dyn_fn::DynFn;
-use asm::assembler::{
-    line::{instruction::Instruction, pseudo::Pseudo},
-    parser::Parser,
+use asm::{
+    assembler::{
+        line::{instruction::Instruction, pseudo::Pseudo},
+        parser::Parser,
+    },
+    linker::object::Object,
 };
-use asm::linker::object::Object;
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
-use std::process::Command;
+use preproc::preproc::TokenTree;
+use std::{fs::File, io::Write, path::Path, process::Command};
 
 fn main() {
-    /*
-    ; システムコールの準備
-    mov rax, 1             ; 'write' システムコールのシステムコール番号（1）を設定
-    mov rdi, 1             ; 標準出力へのファイルディスクリプタ（1）を設定
-    mov rsi, message       ; 出力するメッセージのアドレスを設定
-    mov rdx, len           ; 出力するメッセージの長さを設定
+    preproc_demo();
+}
 
-    ; システムコールの実行
-    syscall
-    */
+#[allow(unused)]
+fn preproc_demo() {
+    let code = "
+    #cat #start 12hjb asdiuer #end
+    ";
+    let macros = TokenTree::standard_macros();
+    let mut tokentree = TokenTree::new(code);
+    println!("{:?}", tokentree);
+    tokentree.process(&macros).expect("error");
+    println!("{:?}", tokentree);
+}
+
+#[allow(unused)]
+fn asm_demo() {
     let code = "
     message:
-    .utf8 \"Hello\"
+    .utf8 \"Hello, World!\\n\"
     main:
     mov rax 1
     mov rdi 1
     lea rsi message[rip]q
-    mov rdx 5
+    mov rdx 14
     syscall
     
     mov rax 60
@@ -37,8 +42,8 @@ fn main() {
     .global main";
 
     let mut object = Object::new();
-    let instruction = Instruction::standard();
-    let pseudo = Pseudo::standard();
+    let instruction = Instruction::standards();
+    let pseudo = Pseudo::standards();
     for line in Parser::new(code) {
         line.encode(&mut object, &pseudo, &instruction)
             .expect("error");

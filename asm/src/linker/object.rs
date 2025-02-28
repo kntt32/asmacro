@@ -1,12 +1,10 @@
-use crate::{
-    assembler::line::label::{Label, Location},
-    functions::SResult,
-};
+use crate::assembler::line::label::{Label, Location};
 use elf::{Elf64Ehdr, Elf64Phdr};
 use std::{
     mem::{size_of, transmute},
     slice,
 };
+use util::types::SResult;
 
 pub struct Elf(Vec<u8>);
 

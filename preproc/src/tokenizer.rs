@@ -2,7 +2,6 @@
 pub enum Token<'a> {
     Literal(&'a str),
     Block(Tokenizer<'a>),
-    Command(&'a str),
 }
 
 #[derive(Clone, Debug)]
@@ -24,7 +23,7 @@ impl<'a> Tokenizer<'a> {
                         Some("end") => level -= 1,
                         Some("start") => level += 1,
                         None => break,
-                        _ => (),
+                        Some(_) => (),
                     }
                     if level == 0 {
                         break;
@@ -45,12 +44,8 @@ impl<'a> Iterator for Tokenizer<'a> {
     fn next(&mut self) -> Option<Token<'a>> {
         if let Some(t) = self.0.next() {
             match t {
-                "#" => match self.0.next() {
-                    Some("begin") => Some(Token::Block(self.iter_helper_block())),
-                    Some("end") => None,
-                    Some(n) => Some(Token::Command(n)),
-                    None => Some(Token::Literal("#")),
-                },
+                "#start" => Some(Token::Block(self.iter_helper_block())),
+                "#end" => None,
                 t => Some(Token::Literal(t)),
             }
         } else {
@@ -86,8 +81,11 @@ impl<'a> Iterator for RawTokenizer<'a> {
                 let is_double_quat = c == '\"';
                 let is_single_quat = c == '\'';
 
-                let is_ascii_punctuation =
-                    (c.is_ascii_punctuation() || c == '\n') && !is_double_quat && !is_single_quat;
+                let is_sharp = c == '#';
+                let is_ascii_punctuation = (c.is_ascii_punctuation() || c == '\n')
+                    && !is_double_quat
+                    && !is_single_quat
+                    && !is_sharp;
                 if is_first {
                     str_flag = is_double_quat;
                     char_flag = is_single_quat;

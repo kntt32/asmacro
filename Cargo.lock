@@ -21,6 +21,9 @@ dependencies = [
 [[package]]
 name = "preproc"
 version = "0.1.0"
+dependencies = [
+ "util",
+]
 
 [[package]]
 name = "proc-macro2"

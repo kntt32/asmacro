@@ -736,7 +736,7 @@ impl Instruction {
             SYSCALL, 0F 05";
 
     /// 基本的なx64命令取得
-    pub fn standard() -> Vec<Instruction> {
+    pub fn standards() -> Vec<Instruction> {
         let mut vec = Vec::new();
         for line in Self::STANDARD.lines() {
             if !line.trim().is_empty() {

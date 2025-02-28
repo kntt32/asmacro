@@ -6,3 +6,6 @@ pub mod dyn_fn;
 
 /// Miscellaneous functions
 pub mod functions;
+
+/// Miscellaneous types
+pub mod types;

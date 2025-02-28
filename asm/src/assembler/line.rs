@@ -99,7 +99,7 @@ pub mod pseudo {
         encode: Box<Encoding>,
     }
 
-    macro_rules! impl_db_pseudo {
+    macro_rules! impl_data_pseudo {
         ($name:literal, $min:expr, $max:expr, $len:expr) => {
             Pseudo {
                 name: $name.to_string(),
@@ -152,20 +152,20 @@ pub mod pseudo {
             }
         }
 
-        pub fn db8() -> Self {
-            impl_db_pseudo!("db8", i8::MIN, u8::MAX, 1)
+        pub fn db() -> Self {
+            impl_data_pseudo!("db", i8::MIN, u8::MAX, 1)
         }
 
-        pub fn db16() -> Self {
-            impl_db_pseudo!("db16", i16::MIN, u16::MAX, 2)
+        pub fn dw() -> Self {
+            impl_data_pseudo!("dw", i16::MIN, u16::MAX, 2)
         }
 
-        pub fn db32() -> Self {
-            impl_db_pseudo!("db32", i32::MIN, u32::MAX, 4)
+        pub fn dd() -> Self {
+            impl_data_pseudo!("dd", i32::MIN, u32::MAX, 4)
         }
 
-        pub fn db64() -> Self {
-            impl_db_pseudo!("db64", i64::MIN, u64::MAX, 8)
+        pub fn dq() -> Self {
+            impl_data_pseudo!("dq", i64::MIN, u64::MAX, 8)
         }
 
         pub fn utf8() -> Self {
@@ -176,13 +176,26 @@ pub mod pseudo {
                     if s.starts_with('\"') && s.ends_with('\"') {
                         let quat_len = '\"'.len_utf8();
                         s = &s[quat_len..s.len() - quat_len];
+                        let mut prefix_flag = false;
                         for c in s.bytes() {
-                            object.code.push(c);
+                            if prefix_flag {
+                                let code = match c {
+                                    b'n' => b'\n',
+                                    b'0' => b'\0',
+                                    b'r' => b'\r',
+                                    _ => return Err(format!("unknown prefix \"\\{}\"", c)),
+                                };
+                                object.code.push(code);
+                            } else if c == b'\\' {
+                                prefix_flag = true;
+                            } else {
+                                object.code.push(c);
+                            }
                         }
                         object.code.push(0x00);
                         Ok(())
                     } else {
-                        Err("unknown expression \"".to_string() + s + "\"")
+                        Err(format!("unknown expression \"{}\"", s))
                     }
                 }),
             }
@@ -206,16 +219,16 @@ pub mod pseudo {
             }
         }
 
-        pub fn standard() -> Vec<Pseudo> {
+        pub fn standards() -> Vec<Pseudo> {
             let global = Pseudo::global();
-            let db8 = Pseudo::db8();
-            let db16 = Pseudo::db16();
-            let db32 = Pseudo::db32();
-            let db64 = Pseudo::db64();
+            let db = Pseudo::db();
+            let dw = Pseudo::dw();
+            let dd = Pseudo::dd();
+            let dq = Pseudo::dq();
             let utf8 = Pseudo::utf8();
             let align16 = Pseudo::align16();
 
-            vec![global, db8, db16, db32, db64, utf8, align16]
+            vec![global, db, dw, dd, dq, utf8, align16]
         }
     }
 
@@ -345,7 +358,7 @@ pub mod instruction {
     use super::{Line, Location, Object};
     use crate::{
         assembler::register::{Register, RegisterCode},
-        functions::{is_keyword, parse_rm, parse_rm_anysize, Disp, Imm, SResult},
+        functions::{is_keyword, parse_rm, parse_rm_anysize, Disp, Imm},
     };
     pub use encoding_rule::{Encoding, EncodingRule, ImmRule, ModRmRule, OpecodeRegisterRule};
     pub use expression::{Expression, OperandType};
@@ -354,7 +367,10 @@ pub mod instruction {
         cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
         str::FromStr,
     };
-    use util::functions::{stoi, stoi_hex_no_prefix};
+    use util::{
+        functions::{stoi, stoi_hex_no_prefix},
+        types::SResult,
+    };
 
     impl<'a> Line<'a> {
         /// 命令のエンコード
@@ -377,8 +393,8 @@ pub mod instruction {
             for i in instruction.encoding().rules() {
                 match i {
                     EncodingRule::Code(v) => object.code.push(*v),
-                    EncodingRule::AddRegister(v) => {
-                        self.add_opecode_register(object, instruction, *v)?
+                    EncodingRule::AddRegister(_) => {
+                        self.add_opecode_register(object, instruction)?
                     }
                     EncodingRule::ModRm(v) => self.push_modrm(object, instruction, *v)?,
                     EncodingRule::Imm(v) => self.push_imm(object, instruction, *v)?,
@@ -408,11 +424,6 @@ pub mod instruction {
 
         fn register_operand(self, instruction: &Instruction) -> Option<&'a str> {
             let register_operand_index = instruction.expression().get_register_operand_index()?;
-            Some(self.operands()[register_operand_index])
-        }
-
-        fn imm_operand(self, instruction: &Instruction) -> Option<&'a str> {
-            let register_operand_index = instruction.expression().get_imm_operand_index()?;
             Some(self.operands()[register_operand_index])
         }
 
@@ -501,7 +512,6 @@ pub mod instruction {
             self,
             object: &mut Object,
             instruction: &Instruction,
-            rule: OpecodeRegisterRule,
         ) -> SResult<()> {
             let register_code = self
                 .register_operand_code(instruction)
