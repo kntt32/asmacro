@@ -2,11 +2,11 @@
 ## 概要
 asmacroは、x64アセンブリをマクロの力で、高性能なまま書きやすくすることを目指しているプロジェクトである  
 Rustによるブートストラップ用のものとasmacro自身による、二種類のアセンブラ/プリプロセッサにより構成される予定である  
-「マクロでがんばるコンパイラ」でもある。
+「マクロでがんばるコンパイラ」でもある
 
 ## 現在地
-Rustによるブートストラップ用のアセンブラがほぼほぼ完成した状態である。  
-設計ミスや機械語生成に関する勘違いで、ここまで時間がかかってしまった。これから実装予定の部分は、比較的はやく作成可能だと思われる。
+Rustによるブートストラップ用のアセンブラが完成し、プリプロセッサと、そのプリプロセッサ命令を実装している途中である。  
+設計ミスや機械語生成に関する勘違いで、ここまで時間がかかってしまった。これから実装予定の部分は、比較的はやく作成可能だと思われる
 
 ## とりあえずの目標
 ↓このようなコードを、
@@ -51,6 +51,9 @@ fibo:
 さらにELF形式に自力で変換することだ
 
 ## 参考文献
-- AMD64仕様書 https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/programmer-references/24594.pdf
-- Oracleのマニュアル https://docs.oracle.com/cd/E19683-01/817-4912/6mkdg541g/index.html
-- 最小限のELF https://keens.github.io/blog/2020/04/12/saishougennoelf/
+- AMD64仕様書  
+https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/programmer-references/24594.pdf
+- Oracleのマニュアル  
+https://docs.oracle.com/cd/E19683-01/817-4912/6mkdg541g/index.html
+- 最小限のELF  
+https://keens.github.io/blog/2020/04/12/saishougennoelf/
