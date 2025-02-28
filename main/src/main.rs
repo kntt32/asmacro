@@ -6,10 +6,39 @@ use asm::{
     linker::object::Object,
 };
 use preproc::preproc::TokenTree;
-use std::{fs::File, io::Write, path::Path, process::Command};
+use std::{fs::File, io::Write, path::Path, process::Command, env::args};
 
 fn main() {
-    preproc_demo();
+    command_interpreter();
+}
+
+#[allow(unused)]
+fn command_interpreter() {
+    let mut args = args();
+    args.next();
+    let Some(command) = args.next() else {
+        println!("
+      ####     #####   # # #      ####     ###    #  ###     ###
+          #   #        ## # ##        #   #   ##   ##   #   #   #
+     ######    #####   #  #  #   ######  #         #       #     #
+    #     #         #  #  #  #  #     #   #   ##   #        #   #
+     ##### #  ######   #  #  #   ##### #   ###     #         ###
+
+            asmacro's bootstrap preprocessor and assembler\n
+            Usages:\n
+                asmacro prep [file] .. ([-m path])
+                asmacro asm [file] .. ([-o path])
+                asmacro run [file] .. ([-o path] [-m path])
+            ");
+        return;
+    };
+
+    match &*command {
+        "prep" => preproc_demo(),
+        "asm" => asm_demo(),
+        "run" => {preproc_demo();asm_demo();},
+        _ => panic!(),
+    }
 }
 
 #[allow(unused)]
