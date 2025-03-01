@@ -5,8 +5,8 @@ use asm::{
     },
     linker::object::Object,
 };
-use preproc::preproc::TokenTree;
-use std::{fs::File, io::Write, path::Path, process::Command, env::args};
+use preproc::TokenTree;
+use std::{env::args, fs::File, io::Write, path::Path, process::Command};
 
 fn main() {
     command_interpreter();
@@ -17,26 +17,33 @@ fn command_interpreter() {
     let mut args = args();
     args.next();
     let Some(command) = args.next() else {
-        println!("
+        println!(
+            "
       ####     #####   # # #      ####     ###    #  ###     ###
           #   #        ## # ##        #   #   ##   ##   #   #   #
      ######    #####   #  #  #   ######  #         #       #     #
     #     #         #  #  #  #  #     #   #   ##   #        #   #
      ##### #  ######   #  #  #   ##### #   ###     #         ###
 
-            asmacro's bootstrap preprocessor and assembler\n
-            Usages:\n
+            asmacro's bootstrap preprocessor and assembler
+
+            Usages:
+
                 asmacro prep [file] .. ([-m path])
                 asmacro asm [file] .. ([-o path])
                 asmacro run [file] .. ([-o path] [-m path])
-            ");
+            "
+        );
         return;
     };
 
     match &*command {
         "prep" => preproc_demo(),
         "asm" => asm_demo(),
-        "run" => {preproc_demo();asm_demo();},
+        "run" => {
+            preproc_demo();
+            asm_demo();
+        }
         _ => panic!(),
     }
 }
@@ -44,12 +51,21 @@ fn command_interpreter() {
 #[allow(unused)]
 fn preproc_demo() {
     let code = "
-    #cat #start 12hjb asdiuer #end
+    #start 12hjb asdiuer #end #cat
+    #start
+        test
+    #end
+    #start
+        macro
+    #end
+    #def
+
+    macro
     ";
     let macros = TokenTree::standard_macros();
     let mut tokentree = TokenTree::new(code);
     println!("{:?}", tokentree);
-    tokentree.process(&macros).expect("error");
+    tokentree.process(&macros);
     println!("{:?}", tokentree);
 }
 

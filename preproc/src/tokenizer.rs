@@ -4,37 +4,29 @@ pub enum Token<'a> {
     Block(Tokenizer<'a>),
 }
 
-#[derive(Clone, Debug)]
-pub struct Tokenizer<'a>(RawTokenizer<'a>);
+#[derive(Clone, Copy, Debug)]
+pub struct Tokenizer<'a> {
+    level: usize,
+    raw_tokenizer: RawTokenizer<'a>,
+}
 
 impl<'a> Tokenizer<'a> {
     pub fn new(src: &'a str) -> Self {
-        Tokenizer(RawTokenizer::new(src))
+        Tokenizer {
+            level: 1,
+            raw_tokenizer: RawTokenizer::new(src),
+        }
     }
 
-    fn iter_helper_block(&mut self) -> Self {
-        let new_self = self.clone();
-        let mut level = 1;
-
+    fn seek_for_end_block(&mut self) {
+        let level = self.level;
+        self.level = 1;
         loop {
-            if let Some(t) = self.0.next() {
-                if t == "#" {
-                    match self.0.next() {
-                        Some("end") => level -= 1,
-                        Some("start") => level += 1,
-                        None => break,
-                        Some(_) => (),
-                    }
-                    if level == 0 {
-                        break;
-                    }
-                }
-            } else {
+            if self.next().is_none() {
                 break;
             }
         }
-
-        new_self
+        self.level = level;
     }
 }
 
@@ -42,14 +34,23 @@ impl<'a> Iterator for Tokenizer<'a> {
     type Item = Token<'a>;
 
     fn next(&mut self) -> Option<Token<'a>> {
-        if let Some(t) = self.0.next() {
-            match t {
-                "#start" => Some(Token::Block(self.iter_helper_block())),
-                "#end" => None,
-                t => Some(Token::Literal(t)),
+        match self.raw_tokenizer.next() {
+            Some("#start") => {
+                let mut block_tokenizer = *self;
+                block_tokenizer.level = 1;
+                self.seek_for_end_block();
+                Some(Token::Block(block_tokenizer))
             }
-        } else {
-            None
+            Some("#end") => {
+                self.level -= 1;
+                if self.level == 0 {
+                    None
+                } else {
+                    self.next()
+                }
+            }
+            Some(t) => Some(Token::Literal(t)),
+            None => None,
         }
     }
 }
@@ -67,9 +68,7 @@ impl<'a> Iterator for RawTokenizer<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0 = self
-            .0
-            .trim_matches(|c: char| c.is_whitespace() && c != '\n');
+        self.0 = self.0.trim_matches(|c: char| c.is_whitespace());
         if !self.0.is_empty() {
             let mut count = 0;
             let mut str_flag = false;
