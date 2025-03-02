@@ -53,14 +53,14 @@ fn preproc_demo() {
     let code = "
     #start 12hjb asdiuer #end #cat
     #start
-        test
+        test $0
     #end
     #start
-        macro
+        macro $
     #end
     #def
 
-    macro
+    macro a
     ";
     let macros = TokenTree::standard_macros();
     let mut tokentree = TokenTree::new(code);

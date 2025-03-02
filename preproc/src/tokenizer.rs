@@ -79,12 +79,14 @@ impl<'a> Iterator for RawTokenizer<'a> {
                 let is_whitespace = c.is_whitespace() && c != '\n';
                 let is_double_quat = c == '\"';
                 let is_single_quat = c == '\'';
+                let is_dollar = c == '$';
 
                 let is_sharp = c == '#';
                 let is_ascii_punctuation = (c.is_ascii_punctuation() || c == '\n')
                     && !is_double_quat
                     && !is_single_quat
-                    && !is_sharp;
+                    && !is_sharp
+                    && !is_dollar;
                 if is_first {
                     str_flag = is_double_quat;
                     char_flag = is_single_quat;
