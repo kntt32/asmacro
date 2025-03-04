@@ -7,3 +7,4 @@ edition = "2021"
 util = { path = "../util" }
 asm = { path = "../asm" }
 preproc = { path = "../preproc" }
+compiler = { path = "../compiler" }

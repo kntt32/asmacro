@@ -5,11 +5,18 @@ use asm::{
     },
     linker::object::Object,
 };
-use preproc::TokenTree;
+use compiler::tokenizer::TokenTree;
 use std::{env::args, fs::File, io::Write, path::Path, process::Command};
 
 fn main() {
-    command_interpreter();
+    let tt = TokenTree::new(
+        "
+    fn square(x: u32@eax, y: u32@edi) -> u32@eax {
+        x * y
+    }
+    ",
+    );
+    println!("{:?}", tt);
 }
 
 #[allow(unused)]
@@ -38,16 +45,16 @@ fn command_interpreter() {
     };
 
     match &*command {
-        "prep" => preproc_demo(),
+        "prep" => panic!(),
         "asm" => asm_demo(),
         "run" => {
-            preproc_demo();
+            panic!();
             asm_demo();
         }
         _ => panic!(),
     }
 }
-
+/*
 #[allow(unused)]
 fn preproc_demo() {
     let code = "
@@ -67,7 +74,7 @@ fn preproc_demo() {
     println!("{:?}", tokentree);
     tokentree.process(&macros);
     println!("{:?}", tokentree);
-}
+}*/
 
 #[allow(unused)]
 fn asm_demo() {

@@ -10,10 +10,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "compiler"
+version = "0.1.0"
+dependencies = [
+ "util",
+]
+
+[[package]]
 name = "main"
 version = "0.1.0"
 dependencies = [
  "asm",
+ "compiler",
  "preproc",
  "util",
 ]
