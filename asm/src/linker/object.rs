@@ -4,7 +4,7 @@ use std::{
     mem::{size_of, transmute},
     slice,
 };
-use util::types::SResult;
+use util::SResult;
 
 pub struct Elf(Vec<u8>);
 

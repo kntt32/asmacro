@@ -5,7 +5,7 @@ use asm::{
     },
     linker::object::Object,
 };
-use compiler::tokenizer::TokenTree;
+use compiler::parser::TokenTree;
 use std::{env::args, fs::File, io::Write, path::Path, process::Command};
 
 fn main() {

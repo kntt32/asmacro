@@ -1,6 +1,6 @@
 use crate::assembler::register::Register;
 use std::{mem::transmute, str::FromStr};
-use util::functions::{result_to_option, stoi};
+use util::{result_to_option, stoi};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Disp {

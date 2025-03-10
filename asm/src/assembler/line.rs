@@ -1,5 +1,5 @@
 use crate::linker::object::Object;
-use util::functions::stoi;
+use util::stoi;
 
 use instruction::Instruction;
 use label::Location;
@@ -367,10 +367,7 @@ pub mod instruction {
         cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
         str::FromStr,
     };
-    use util::{
-        functions::{stoi, stoi_hex_no_prefix},
-        types::SResult,
-    };
+    use util::{stoi, stoi_hex_no_prefix, SResult};
 
     impl<'a> Line<'a> {
         /// 命令のエンコード

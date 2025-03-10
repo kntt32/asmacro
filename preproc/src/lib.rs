@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 use tokenizer::Tokenizer;
-use util::functions::stoi;
+use util::stoi;
 
 /// トークン化イテレータ
 mod tokenizer;
