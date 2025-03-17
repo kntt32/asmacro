@@ -5,18 +5,52 @@ use asm::{
     },
     linker::object::Object,
 };
-use compiler::parser::TokenTree;
+use compiler::{
+    parser::{Parser as CParser, Token},
+    syntax_analyzer::{SyntaxNode, SyntaxTree},
+};
 use std::{env::args, fs::File, io::Write, path::Path, process::Command};
 
 fn main() {
-    let tt = TokenTree::new(
-        "
-    fn square(x: u32@eax, y: u32@edi) -> u32@eax {
-        x * y
-    }
-    ",
+    let mut parser = CParser::new(
+        "  fn main() {
+        let v : u64 @ rax = 5
+        }",
     );
-    println!("{:?}", tt);
+
+    compiler_demo(parser);
+
+    let tree = SyntaxTree::new(parser);
+    println!("{:?}", tree);
+
+    /*
+        let p = CParser::new(
+            "
+        fn main() {
+        5
+        }
+        ",
+        );
+        compiler_demo(p);
+    */
+}
+
+#[allow(unused)]
+fn compiler_demo(mut parser: CParser) {
+    for t in parser {
+        match t {
+            Token::Block {
+                r#type: _,
+                parser: p,
+                offset: _,
+            } => {
+                println!("{:?}\n", t);
+                compiler_demo(p);
+                println!("\n");
+            }
+            _ => println!("{:?}", t),
+        }
+    }
 }
 
 #[allow(unused)]

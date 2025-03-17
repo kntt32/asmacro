@@ -1,4 +1,4 @@
-use util::{stoi, Offset};
+use util::{Offset, stoi};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TokenTree<'a> {
@@ -12,46 +12,38 @@ impl<'a> TokenTree<'a> {
         }
     }
 }
-/*
-pub enum Token<'a> {
-    Token {r#type: TokenType, src: &'a str, offset: Offset},
-    Error {msg: String, offset: Offset},
-}*/
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Token<'a> {
-    Keyword {
-        src: &'a str,
-        offset: Offset,
-    },
-    Symbol {
+    Token {
+        r#type: TokenType,
         src: &'a str,
         offset: Offset,
     },
     Block {
-        tree: TokenTree<'a>,
+        r#type: BracketType,
+        parser: Parser<'a>,
         offset: Offset,
     },
-    Bracket {
-        tree: TokenTree<'a>,
-        offset: Offset,
-    },
-    Square {
-        tree: TokenTree<'a>,
-        offset: Offset,
-    },
-    StringLiteral {
-        src: &'a str,
-        offset: Offset,
-    },
-    NumberLiteral {
-        src: &'a str,
-        offset: Offset,
-    },
-    Err {
+    Error {
         msg: String,
         offset: Offset,
     },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TokenType {
+    Keyword,
+    Symbol,
+    StringLiteral,
+    NumberLiteral,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum BracketType {
+    CurlyBracket,
+    Bracket,
+    SquareBracket,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -92,7 +84,8 @@ impl<'a> Parser<'a> {
             offset.column += 1;
         }
 
-        let token = Token::Keyword {
+        let token = Token::Token {
+            r#type: TokenType::Keyword,
             src: &self.src[..len],
             offset: self.offset,
         };
@@ -102,14 +95,17 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_symbol(&mut self) -> Option<Token<'a>> {
-        const SYMBOLS: &[&str] = &["->", ":", ",", "@", ";", "+", "-", "*", "/"];
+        const SYMBOLS: &[&str] = &[
+            "fn", "mut", "let", "->", ":", ",", "@", ";", "+", "-", "*", "/", "<", ">", "=",
+        ];
         let offset = self.offset;
 
         for s in SYMBOLS {
             if self.src.starts_with(s) {
                 self.offset.column += s.chars().count();
                 self.src = &self.src[s.len()..];
-                return Some(Token::Symbol {
+                return Some(Token::Token {
+                    r#type: TokenType::Symbol,
                     src: s,
                     offset: offset,
                 });
@@ -119,19 +115,23 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_block(&mut self) -> Option<Token<'a>> {
-        self.parse_brackets_helper('{', '}')
+        self.parse_brackets_helper('{', '}', BracketType::CurlyBracket)
     }
 
     fn parse_bracket(&mut self) -> Option<Token<'a>> {
-        self.parse_brackets_helper('(', ')')
+        self.parse_brackets_helper('(', ')', BracketType::Bracket)
     }
 
     fn parse_square(&mut self) -> Option<Token<'a>> {
-        self.parse_brackets_helper('[', ']')
+        self.parse_brackets_helper('[', ']', BracketType::SquareBracket)
     }
 
-    fn parse_brackets_helper(&mut self, start: char, end: char) -> Option<Token<'a>> {
-        let mut tree = Vec::new();
+    fn parse_brackets_helper(
+        &mut self,
+        start: char,
+        end: char,
+        r#type: BracketType,
+    ) -> Option<Token<'a>> {
         let offset = self.offset;
 
         if !self.src.starts_with(start) {
@@ -140,19 +140,31 @@ impl<'a> Parser<'a> {
         self.src = &self.src[start.len_utf8()..];
         self.offset.column += 1;
 
-        loop {
+        let init_src = self.src;
+        let init_offset = self.offset;
+        let len = self.src.len();
+        let parser = loop {
             self.parse_whitespace();
             if self.src.starts_with(end) {
+                let parser = Parser {
+                    src: &init_src[..len - self.src.len()],
+                    offset: init_offset,
+                };
                 self.offset.column += 1;
                 self.src = &self.src[end.len_utf8()..];
-                break;
+                break parser;
             }
-            let child_token = self.next()?;
-            tree.push(child_token);
-        }
+            let Some(_) = self.next() else {
+                return Some(Token::Error {
+                    msg: "unclosed bracket".to_string(),
+                    offset: self.offset,
+                });
+            };
+        };
 
         Some(Token::Block {
-            tree: TokenTree { tree: tree },
+            r#type: r#type,
+            parser: parser,
             offset: offset,
         })
     }
@@ -173,7 +185,7 @@ impl<'a> Parser<'a> {
 
         loop {
             let Some(c) = chars.next() else {
-                return Some(Token::Err {
+                return Some(Token::Error {
                     msg: "mismatch double quate".to_string(),
                     offset: self.offset,
                 });
@@ -197,7 +209,7 @@ impl<'a> Parser<'a> {
                 match c {
                     '\\' | 'r' | 'n' | '\"' | '\'' => (),
                     _ => {
-                        token = Some(Token::Err {
+                        token = Some(Token::Error {
                             msg: "unknown character escape".to_string(),
                             offset: self.offset,
                         })
@@ -210,7 +222,8 @@ impl<'a> Parser<'a> {
         } else {
             let src = &self.src[..len];
             self.src = &self.src[..len];
-            Some(Token::StringLiteral {
+            Some(Token::Token {
+                r#type: TokenType::StringLiteral,
                 src: src,
                 offset: offset,
             })
@@ -244,7 +257,8 @@ impl<'a> Parser<'a> {
 
         let src = &self.src[..len];
         if len != 0 && stoi(src).is_some() {
-            let token = Token::NumberLiteral {
+            let token = Token::Token {
+                r#type: TokenType::NumberLiteral,
                 src: src,
                 offset: offset,
             };
@@ -281,15 +295,15 @@ impl<'a> Iterator for Parser<'a> {
             return None;
         }
         let token = self
-            .parse_keyword()
+            .parse_symbol()
             .or_else(|| self.parse_block())
-            .or_else(|| self.parse_symbol())
+            .or_else(|| self.parse_keyword())
             .or_else(|| self.parse_bracket())
             .or_else(|| self.parse_square())
             .or_else(|| self.parse_string_literal())
             .or_else(|| self.parse_number_literal())
             .or_else(|| {
-                let token = Token::Err {
+                let token = Token::Error {
                     msg: "unknown expresssion".to_string(),
                     offset: self.offset,
                 };
