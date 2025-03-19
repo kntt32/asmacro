@@ -7,55 +7,119 @@ pub struct SyntaxTree {
 }
 
 impl SyntaxTree {
-    pub fn new(mut p: Parser<'_>) -> Option<Self> {
+    pub fn new(src: &str) -> Self {
+        let parser = Parser::new(src);
+        Self::from_parser(parser)
+    }
+
+    /// Parserから生成
+    pub fn from_parser(mut p: Parser<'_>) -> Self {
         let mut tree = Vec::new();
+
         loop {
-            let Some(syntax_node) = Self::analyze_expr(&mut p) else {
+            let Some(node) = Self::analyze_statement(&mut p) else {
                 break;
             };
-            tree.push(syntax_node);
+            tree.push(node);
         }
-        Some(SyntaxTree { tree: tree })
+
+        SyntaxTree { tree: tree }
     }
 
-    fn analyze_expr(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        let analyzers: &[fn(&mut Parser<'_>) -> Option<SyntaxNode>] = &[
-            Self::analyze_number_literal,
-            Self::analyze_function_declaration_with_return_value,
-            Self::analyze_function_declaration,
-            Self::analyze_variable_declaration,
-            Self::analyze_mutable_variable_declaration,
-            Self::analyze_assignment_statement,
-            Self::analyze_calling_expr,
-        ];
-        let p_copy = *p;
-        for f in analyzers {
-            if let Some(syntax_node) = (f)(p) {
-                return Some(syntax_node);
-            } else {
+    // 文を分析
+    pub fn analyze_statement(p: &mut Parser<'_>) -> Option<SyntaxNode> {
+        if p.clone().next().is_some() {
+            let analyzers = &[
+                Self::analyze_function_declaration,
+                Self::analyze_function_declaration_with_return_value,
+                Self::analyze_variable_declaration,
+                Self::analyze_mutable_variable_declaration,
+                Self::analyze_assignment_statement,
+                Self::analyze_expr_as_statement,
+            ];
+            let p_copy = *p;
+            for f in analyzers {
+                if let Some(node) = f(p) {
+                    return Some(node);
+                }
                 *p = p_copy;
             }
-        }
-        None
-    }
-
-    pub fn analyze_number_literal(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        if let Some(Token::Token {
-            r#type: TokenType::NumberLiteral,
-            src: src,
-            offset: offset,
-        }) = p.next()
-        {
-            Some(SyntaxNode::NumberLiteral {
-                src: src.to_string(),
-                offset: offset,
+            Some(SyntaxNode::Error {
+                msg: "".to_string(),
+                offset: Offset { column: 0, row: 0 },
             })
         } else {
             None
         }
     }
 
-    pub fn analyze_function_declaration(p: &mut Parser<'_>) -> Option<SyntaxNode> {
+    // 関数定義の引数を分析
+    fn _analyze_arguments(mut p: Parser<'_>) -> Option<Vec<Variable>> {
+        let mut arguments = Vec::new();
+        loop {
+            let (name, offset) = match p.next() {
+                Some(Token::Token {
+                    r#type: TokenType::Keyword,
+                    src: name,
+                    offset: offset,
+                }) => (name, offset),
+                None => break,
+                _ => return None,
+            };
+            let Some(Token::Token {
+                r#type: TokenType::Symbol,
+                src: ":",
+                offset: _,
+            }) = p.next()
+            else {
+                return None;
+            };
+            let Some(Token::Token {
+                r#type: TokenType::Keyword,
+                src: r#type,
+                offset: _,
+            }) = p.next()
+            else {
+                return None;
+            };
+            let Some(Token::Token {
+                r#type: TokenType::Symbol,
+                src: "@",
+                offset: _,
+            }) = p.next()
+            else {
+                return None;
+            };
+            let Some(Token::Token {
+                r#type: TokenType::Keyword,
+                src: register,
+                offset: _,
+            }) = p.next()
+            else {
+                return None;
+            };
+            arguments.push(Variable {
+                mutable: false,
+                name: name.to_string(),
+                r#type: r#type.to_string(),
+                register: register.to_string(),
+            });
+
+            match p.next() {
+                Some(Token::Token {
+                    r#type: TokenType::Symbol,
+                    src: ",",
+                    offset: _,
+                })
+                | None => (),
+                _ => return None,
+            }
+        }
+        Some(arguments)
+    }
+
+    // 戻り値のない関数定義を分析
+    fn analyze_function_declaration(p: &mut Parser<'_>) -> Option<SyntaxNode> {
         let Some(Token::Token {
             r#type: TokenType::Symbol,
             src: "fn",
@@ -71,50 +135,43 @@ impl SyntaxTree {
         }) = p.next()
         else {
             return Some(SyntaxNode::Error {
-                msg: "expected function name".to_string(),
+                msg: "missing function name".to_string(),
                 offset: offset,
             });
         };
         let Some(Token::Block {
             r#type: BracketType::Bracket,
-            parser: mut arg_parser,
+            parser: args_parser,
             offset: _,
         }) = p.next()
         else {
             return Some(SyntaxNode::Error {
-                msg: "expected arguments".to_string(),
+                msg: "missing function arguments".to_string(),
                 offset: offset,
             });
         };
-        let None = arg_parser.next() else {
-            return None;
-        }; // めんどくさいため関数の引数関連の処理はあとから実装
+        let arguments = Self::_analyze_arguments(args_parser)?;
         let Some(Token::Block {
             r#type: BracketType::CurlyBracket,
-            parser: inner_parser,
+            parser: proc_parser,
             offset: _,
         }) = p.next()
         else {
             return Some(SyntaxNode::Error {
-                msg: "expected expression".to_string(),
-                offset: offset,
-            });
-        };
-        let Some(syntax_tree) = Self::new(inner_parser) else {
-            return Some(SyntaxNode::Error {
-                msg: "expected expression".to_string(),
+                msg: "missing function procedure".to_string(),
                 offset: offset,
             });
         };
         Some(SyntaxNode::FunctionDeclaration {
             name: name.to_string(),
-            args: Vec::new(),
-            r#type: "()".to_string(),
-            syntax_tree: syntax_tree,
+            args: arguments,
+            r#type: "_".to_string(),
+            syntax_tree: SyntaxTree::from_parser(proc_parser),
             offset: offset,
         })
     }
 
+    // 戻り値のある関数定義を分析
     fn analyze_function_declaration_with_return_value(p: &mut Parser<'_>) -> Option<SyntaxNode> {
         let Some(Token::Token {
             r#type: TokenType::Symbol,
@@ -131,24 +188,22 @@ impl SyntaxTree {
         }) = p.next()
         else {
             return Some(SyntaxNode::Error {
-                msg: "expected function name".to_string(),
+                msg: "missing function name".to_string(),
                 offset: offset,
             });
         };
         let Some(Token::Block {
             r#type: BracketType::Bracket,
-            parser: mut arg_parser,
+            parser: args_parser,
             offset: _,
         }) = p.next()
         else {
             return Some(SyntaxNode::Error {
-                msg: "expected arguments".to_string(),
+                msg: "missing function arguments".to_string(),
                 offset: offset,
             });
         };
-        let None = arg_parser.next() else {
-            return None;
-        }; // めんどくさいため関数の引数関連の処理はあとから実装
+        let arguments = Self::_analyze_arguments(args_parser)?;
         let Some(Token::Token {
             r#type: TokenType::Symbol,
             src: "->",
@@ -159,43 +214,37 @@ impl SyntaxTree {
         };
         let Some(Token::Token {
             r#type: TokenType::Keyword,
-            src: return_value_type,
+            src: r#type,
             offset: _,
         }) = p.next()
         else {
             return Some(SyntaxNode::Error {
-                msg: "expected returning value type".to_string(),
+                msg: "missing function return value type".to_string(),
                 offset: offset,
             });
         };
         let Some(Token::Block {
             r#type: BracketType::CurlyBracket,
-            parser: inner_parser,
+            parser: proc_parser,
             offset: _,
         }) = p.next()
         else {
             return Some(SyntaxNode::Error {
-                msg: "expected expression".to_string(),
-                offset: offset,
-            });
-        };
-        let Some(syntax_tree) = Self::new(inner_parser) else {
-            return Some(SyntaxNode::Error {
-                msg: "expected expression".to_string(),
+                msg: "missing function procedure".to_string(),
                 offset: offset,
             });
         };
         Some(SyntaxNode::FunctionDeclaration {
             name: name.to_string(),
-            args: Vec::new(),
-            r#type: return_value_type.to_string(),
-            syntax_tree: syntax_tree,
+            args: arguments,
+            r#type: r#type.to_string(),
+            syntax_tree: SyntaxTree::from_parser(proc_parser),
             offset: offset,
         })
     }
 
+    // 変数定義を分析
     fn analyze_variable_declaration(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        println!("called A");
         let Some(Token::Token {
             r#type: TokenType::Symbol,
             src: "let",
@@ -204,16 +253,24 @@ impl SyntaxTree {
         else {
             return None;
         };
-        println!("called B");
-        let Some(Token::Token {
-            r#type: TokenType::Keyword,
-            src: name,
-            offset: _,
-        }) = p.next()
-        else {
-            return None;
+        let name = match p.next() {
+            Some(Token::Token {
+                r#type: TokenType::Keyword,
+                src: name,
+                offset: _,
+            }) => name,
+            Some(Token::Token {
+                r#type: TokenType::Symbol,
+                src: "mut",
+                offset: _,
+            }) => return None,
+            _ => {
+                return Some(SyntaxNode::Error {
+                    msg: "expected variable name".to_string(),
+                    offset: offset,
+                });
+            }
         };
-        println!("called C");
         let Some(Token::Token {
             r#type: TokenType::Symbol,
             src: ":",
@@ -271,22 +328,34 @@ impl SyntaxTree {
         };
         let Some(expr) = Self::analyze_expr(p) else {
             return Some(SyntaxNode::Error {
-                msg: "expected expression".to_string(),
+                msg: "unknown expression".to_string(),
+                offset: offset,
+            });
+        };
+        let Some(Token::Token {
+            r#type: TokenType::Symbol,
+            src: ";",
+            offset: _,
+        }) = p.next()
+        else {
+            return Some(SyntaxNode::Error {
+                msg: "expected symbol \";\"".to_string(),
                 offset: offset,
             });
         };
         Some(SyntaxNode::VariableDeclaration {
             variable: Variable {
-                mutablity: false,
+                mutable: false,
                 name: name.to_string(),
                 r#type: r#type.to_string(),
-                storage: register.to_string(),
+                register: register.to_string(),
             },
             expr: Box::new(expr),
             offset: offset,
         })
     }
 
+    // ミュータブルな変数定義を分析
     fn analyze_mutable_variable_declaration(p: &mut Parser<'_>) -> Option<SyntaxNode> {
         let Some(Token::Token {
             r#type: TokenType::Symbol,
@@ -304,13 +373,18 @@ impl SyntaxTree {
         else {
             return None;
         };
-        let Some(Token::Token {
-            r#type: TokenType::Keyword,
-            src: name,
-            offset: _,
-        }) = p.next()
-        else {
-            return None;
+        let name = match p.next() {
+            Some(Token::Token {
+                r#type: TokenType::Keyword,
+                src: name,
+                offset: _,
+            }) => name,
+            _ => {
+                return Some(SyntaxNode::Error {
+                    msg: "expected variable name".to_string(),
+                    offset: offset,
+                });
+            }
         };
         let Some(Token::Token {
             r#type: TokenType::Symbol,
@@ -369,22 +443,34 @@ impl SyntaxTree {
         };
         let Some(expr) = Self::analyze_expr(p) else {
             return Some(SyntaxNode::Error {
-                msg: "expected expression".to_string(),
+                msg: "unknown expression".to_string(),
+                offset: offset,
+            });
+        };
+        let Some(Token::Token {
+            r#type: TokenType::Symbol,
+            src: ";",
+            offset: _,
+        }) = p.next()
+        else {
+            return Some(SyntaxNode::Error {
+                msg: "expected symbol \";\"".to_string(),
                 offset: offset,
             });
         };
         Some(SyntaxNode::VariableDeclaration {
             variable: Variable {
-                mutablity: true,
+                mutable: true,
                 name: name.to_string(),
                 r#type: r#type.to_string(),
-                storage: register.to_string(),
+                register: register.to_string(),
             },
             expr: Box::new(expr),
             offset: offset,
         })
     }
 
+    // 変数への代入分を分析
     fn analyze_assignment_statement(p: &mut Parser<'_>) -> Option<SyntaxNode> {
         let Some(Token::Token {
             r#type: TokenType::Keyword,
@@ -408,14 +494,92 @@ impl SyntaxTree {
                 offset: offset,
             });
         };
+        let Some(Token::Token {
+            r#type: TokenType::Symbol,
+            src: ";",
+            offset: _,
+        }) = p.next()
+        else {
+            return Some(SyntaxNode::Error {
+                msg: "expected symbol \";\"".to_string(),
+                offset: offset,
+            });
+        };
         Some(SyntaxNode::AssignmentStatement {
             name: name.to_string(),
-            expr: Box::new(expr),
             offset: offset,
+            expr: Box::new(expr),
         })
     }
 
-    fn analyze_calling_expr(p: &mut Parser<'_>) -> Option<SyntaxNode> {
+    // 式を文として分析
+    fn analyze_expr_as_statement(p: &mut Parser<'_>) -> Option<SyntaxNode> {
+        let node = Self::analyze_expr(p)?;
+        if let Some(Token::Token {
+            r#type: TokenType::Symbol,
+            src: ";",
+            offset: _,
+        }) = p.next()
+        {
+            Some(node)
+        } else {
+            None
+        }
+    }
+
+    // 式を分析
+    fn analyze_expr(p: &mut Parser<'_>) -> Option<SyntaxNode> {
+        let analyzers = &[
+            Self::analyze_number_literal,
+            Self::analyze_string_literal,
+            Self::analyze_caling_function,
+        ];
+        let p_copy = *p;
+        for f in analyzers {
+            if let Some(node) = f(p) {
+                return Some(node);
+            }
+            *p = p_copy;
+        }
+        None
+    }
+
+    // 数値リテラルを分析
+    fn analyze_number_literal(p: &mut Parser<'_>) -> Option<SyntaxNode> {
+        if let Some(Token::Token {
+            r#type: TokenType::NumberLiteral,
+            src: src,
+            offset: offset,
+        }) = p.next()
+        {
+            Some(SyntaxNode::NumberLiteral {
+                src: src.to_string(),
+                offset: offset,
+            })
+        } else {
+            None
+        }
+    }
+
+    // 文字列リテラルを分析
+    fn analyze_string_literal(p: &mut Parser<'_>) -> Option<SyntaxNode> {
+        if let Some(Token::Token {
+            r#type: TokenType::StringLiteral,
+            src: src,
+            offset: offset,
+        }) = p.next()
+        {
+            Some(SyntaxNode::StringLiteral {
+                src: src.to_string(),
+                offset: offset,
+            })
+        } else {
+            None
+        }
+    }
+
+    // 関数呼び出しを分析
+    fn analyze_caling_function(p: &mut Parser<'_>) -> Option<SyntaxNode> {
         let Some(Token::Token {
             r#type: TokenType::Keyword,
             src: name,
@@ -426,25 +590,55 @@ impl SyntaxTree {
         };
         let Some(Token::Block {
             r#type: BracketType::Bracket,
-            parser: mut args_parser,
+            parser: args_parser,
             offset: _,
         }) = p.next()
         else {
             return None;
         };
-        if args_parser.next().is_some() {
-            return None;
-        } // めんどくさいため、引数関連の処理は後で実装予定
+        let Some(arguments) = Self::_analyze_calling_arguments(args_parser) else {
+            return Some(SyntaxNode::Error {
+                msg: "invalid arguments expression".to_string(),
+                offset: offset,
+            });
+        };
         Some(SyntaxNode::CallingExpr {
             name: name.to_string(),
-            arguments: Vec::new(),
+            arguments: arguments,
         })
+    }
+
+    // 関数呼び出し時の引数を分析
+    fn _analyze_calling_arguments(mut p: Parser<'_>) -> Option<Vec<SyntaxNode>> {
+        let p_copy = p;
+        let mut arguments = Vec::new();
+        loop {
+            if p.clone().next().is_none() {
+                break;
+            }
+            let arg = Self::analyze_expr(&mut p)?;
+            arguments.push(arg);
+            match p.next() {
+                Some(Token::Token {
+                    r#type: TokenType::Symbol,
+                    src: ",",
+                    offset: _,
+                }) => (),
+                None => break,
+                _ => return None,
+            }
+        }
+        Some(arguments)
     }
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum SyntaxNode {
     NumberLiteral {
+        src: String,
+        offset: Offset,
+    },
+    StringLiteral {
         src: String,
         offset: Offset,
     },
@@ -467,7 +661,7 @@ pub enum SyntaxNode {
     },
     CallingExpr {
         name: String,
-        arguments: Vec<SyntaxTree>,
+        arguments: Vec<SyntaxNode>,
     },
     Error {
         msg: String,
@@ -477,8 +671,8 @@ pub enum SyntaxNode {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Variable {
-    mutablity: bool,
+    mutable: bool,
     name: String,
     r#type: String,
-    storage: String,
+    register: String,
 }

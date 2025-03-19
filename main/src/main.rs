@@ -7,21 +7,24 @@ use asm::{
 };
 use compiler::{
     parser::{Parser as CParser, Token},
-    syntax_analyzer::{SyntaxNode, SyntaxTree},
+    syntax_analyzer::SyntaxTree,
 };
 use std::{env::args, fs::File, io::Write, path::Path, process::Command};
 
 fn main() {
-    let mut parser = CParser::new(
-        "  fn main() {
-        let v : u64 @ rax = 5
-        }",
+    let mut parser = CParser::new("let v:u64@rax = 5;");
+    println!(
+        "{:?}",
+        SyntaxTree::new(
+            "
+    fn main () {
+        let mut v: u64 @ rax = 5;
+        v = 3;
+        main();
+    }
+    "
+        )
     );
-
-    compiler_demo(parser);
-
-    let tree = SyntaxTree::new(parser);
-    println!("{:?}", tree);
 
     /*
         let p = CParser::new(
