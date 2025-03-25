@@ -1,5 +1,5 @@
 use crate::parser::{BracketType, Parser, Token, TokenTree, TokenType};
-use util::Offset;
+use util::{EResult, Offset, SResult};
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct SyntaxTree {
@@ -11,6 +11,102 @@ impl SyntaxTree {
         let parser = Parser::new(src);
         Self::from_parser(parser)
     }
+
+    /// 正しい構文ツリーであるかチェック
+    pub fn check(&mut self) -> SResult<()> {
+        todo!()
+    }
+    /*
+    #[derive(Clone, PartialEq, Debug)]
+    pub enum SyntaxNode {
+        NumberLiteral {
+            src: String,
+            offset: Offset,
+        },
+        StringLiteral {
+            src: String,
+            offset: Offset,
+        },
+        FunctionDeclaration {
+            function: Function,
+            offset: Offset,
+        },
+        VariableDeclaration {
+            variable: Variable,
+            expr: Box<SyntaxNode>,
+            offset: Offset,
+        },
+        AssignmentStatement {
+            name: String,
+            expr: Box<SyntaxNode>,
+            offset: Offset,
+        },
+        CallingExpr {
+            name: String,
+            arguments: Vec<SyntaxNode>,
+        },
+        Error {
+            msg: String,
+            offset: Offset,
+        },
+    }
+        */
+    /// グローバルの構文チェックして関数リストを返す
+    pub fn check_global(&self) -> SResult<Vec<&Function>> {
+        let mut function_list = Vec::new();
+        for i in &self.tree {
+            match i {
+                SyntaxNode::NumberLiteral {
+                    src: src,
+                    offset: offset,
+                }
+                | SyntaxNode::StringLiteral {
+                    src: src,
+                    offset: offset,
+                } => {
+                    return Err(format!(
+                        "{}:{}: literal \"{}\" is not allowed here",
+                        offset.row, offset.column, src
+                    ));
+                }
+                SyntaxNode::FunctionDeclaration { function: f, .. } => function_list.push(f),
+                SyntaxNode::VariableDeclaration { offset: offset, .. } => {
+                    return Err(format!(
+                        "{}:{}: variable declaration is not allowed here",
+                        offset.row, offset.column
+                    ));
+                }
+                SyntaxNode::AssignmentStatement { offset: offset, .. } => {
+                    return Err(format!(
+                        "{}:{}: variable declaration is not allowed here",
+                        offset.row, offset.column
+                    ));
+                }
+                SyntaxNode::CallingExpr { .. } => {
+                    return Err(format!("calling function is not allowed here"));
+                }
+                SyntaxNode::Error {
+                    msg: msg,
+                    offset: offset,
+                } => return Err(format!("{}:{}: {}", offset.row, offset.column, msg)),
+            }
+        }
+        Ok(function_list)
+    }
+
+    // 関数の構文チェック
+    pub fn check_function(function_list: &[&Function]) -> SResult<()> {
+        todo!()
+    }
+    /*
+    #[derive(Clone, PartialEq, Debug)]
+    pub struct Function {
+        name: String,
+        args: Vec<Variable>,
+        r#type: String,
+        syntax_tree: SyntaxTree,
+    }
+        */
 
     /// Parserから生成
     pub fn from_parser(mut p: Parser<'_>) -> Self {
@@ -162,11 +258,14 @@ impl SyntaxTree {
                 offset: offset,
             });
         };
-        Some(SyntaxNode::FunctionDeclaration {
+        let function = Function {
             name: name.to_string(),
             args: arguments,
-            r#type: "_".to_string(),
+            r#type: Type::empty(),
             syntax_tree: SyntaxTree::from_parser(proc_parser),
+        };
+        Some(SyntaxNode::FunctionDeclaration {
+            function: function,
             offset: offset,
         })
     }
@@ -212,12 +311,7 @@ impl SyntaxTree {
         else {
             return None;
         };
-        let Some(Token::Token {
-            r#type: TokenType::Keyword,
-            src: r#type,
-            offset: _,
-        }) = p.next()
-        else {
+        let Some(r#type) = Type::from_parser(p) else {
             return Some(SyntaxNode::Error {
                 msg: "missing function return value type".to_string(),
                 offset: offset,
@@ -234,11 +328,14 @@ impl SyntaxTree {
                 offset: offset,
             });
         };
-        Some(SyntaxNode::FunctionDeclaration {
+        let function = Function {
             name: name.to_string(),
             args: arguments,
-            r#type: r#type.to_string(),
+            r#type: r#type,
             syntax_tree: SyntaxTree::from_parser(proc_parser),
+        };
+        Some(SyntaxNode::FunctionDeclaration {
+            function: function,
             offset: offset,
         })
     }
@@ -643,10 +740,7 @@ pub enum SyntaxNode {
         offset: Offset,
     },
     FunctionDeclaration {
-        name: String,
-        args: Vec<Variable>,
-        r#type: String,
-        syntax_tree: SyntaxTree,
+        function: Function,
         offset: Offset,
     },
     VariableDeclaration {
@@ -669,10 +763,200 @@ pub enum SyntaxNode {
     },
 }
 
+impl SyntaxNode {
+    /// 返却型を返す
+    pub fn as_type<'a>(&self, function_list: &[&'a Function]) -> Option<Type> {
+        match self {
+            Self::NumberLiteral { .. } => Some(Type {
+                name: "i32".to_string(),
+                register: None,
+            }),
+            Self::StringLiteral { .. } => Some(Type {
+                name: "&str".to_string(),
+                register: None,
+            }),
+            Self::FunctionDeclaration { .. } => None,
+            Self::VariableDeclaration { .. } => Some(Type {
+                name: "_".to_string(),
+                register: None,
+            }),
+            Self::AssignmentStatement { .. } => Some(Type {
+                name: "_".to_string(),
+                register: None,
+            }),
+            Self::CallingExpr { name: name, .. } => {
+                for f in function_list {
+                    if &f.name == name {
+                        return Some(f.r#type.clone());
+                    }
+                }
+                None
+            }
+            Self::Error { .. } => None,
+        }
+    }
+
+    /// 正当なSyntnaxNodeであるかチェック
+    pub fn check(&self, function_list: &[&Function], type_list: &[&Type]) -> EResult {
+        match self {
+            Self::NumberLiteral { .. } => Ok(()),
+            Self::StringLiteral { .. } => Ok(()),
+            Self::FunctionDeclaration { .. } => self.check_function_declaration(),
+            _ => todo!(),
+        }
+    }
+
+    // 関数定義が正当かチェック
+    fn check_function_declaration(&self) -> EResult {
+        let Self::FunctionDeclaration {
+            function: function,
+            offset: offset,
+        } = self
+        else {
+            panic!("invalid input");
+        };
+        todo!()
+    }
+    /*
+        VariableDeclaration {
+            variable: Variable,
+            expr: Box<SyntaxNode>,
+            offset: Offset,
+        },
+    */
+    /*
+    // 正当な変数定義かチェック
+    fn check_variable_declaration(&self, function_list: &[&Function], type_list: &[&Type]) -> EResult {
+        let Self::VariableDeclaration { variable: variable, expr: expr, offset: offset } = self else {
+            panic!("invalid input");
+        };
+
+        for t in type_list {
+            if t.name == variable.r#type {
+                match t.register {
+                    Some(r) => {
+                        return if r == variable.register { Ok(()) }else { Err(ErrorMessage {
+                            msg: format!("Register \"{}\" is not allowed.", variable.register),
+                            offset: offset,
+                        }) };
+                    },
+                    None => {
+
+                    },
+                }
+            }
+        }
+    }*/
+}
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct Variable {
     mutable: bool,
     name: String,
     r#type: String,
     register: String,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct Function {
+    name: String,
+    args: Vec<Variable>,
+    r#type: Type,
+    syntax_tree: SyntaxTree,
+}
+
+/*
+impl Function {
+    /// 正しい内容かチェック
+    pub fn check(&self, function_list: &[&Self], type_list: &[&Type]) -> bool {
+        self.check_unique(function_list) && self.check_proc(function_list, type_list)
+    }
+
+    /// 関数リスト中で何番目に出てくるか取得
+    fn get_index(&self, function_list: &[&Self]) -> Option<usize> {
+        for i in 0 .. function_list.len() {
+            if self == function_list[i] {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    /// 関数が関数リスト中でユニークであることをチェック
+    pub fn check_unique(&self, function_list: &[&Self]) -> bool {
+        if let Some(index) = self.get_index(function_list) {
+            for i in 0 .. function_list.len() {
+                if i != index && function_list[i].name == self.name {
+                    return false;
+                }
+            }
+            true
+        }else {
+            false
+        }
+    }
+
+    /// 関数の定義が正当であることをチェック
+    pub fn check_proc(&self, function_list: &[&Self], type_list: &[&Type]) -> bool {
+        if let Some(index) = self.get_index(function_list) {
+            let r#type: Option<Type> = None;
+            for syntax_node in self.syntax_tree {
+                r#type = syntax_node.as_type();
+                if !syntax_node.check() {
+                    return false;
+                }
+            }
+        }else {
+            false
+        }
+    }
+}*/
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct Type {
+    name: String,
+    register: Option<String>,
+}
+
+impl Type {
+    /// Parserから型データを取得
+    pub fn from_parser(p: &mut Parser<'_>) -> Option<Self> {
+        let mut p_copy = *p;
+        let Some(Token::Token {
+            r#type: TokenType::Keyword,
+            src: name,
+            offset: offset,
+        }) = p_copy.next()
+        else {
+            return None;
+        };
+        let Some(Token::Token {
+            r#type: TokenType::Symbol,
+            src: "@",
+            offset: _,
+        }) = p.next()
+        else {
+            return None;
+        };
+        let Some(Token::Token {
+            r#type: TokenType::Keyword,
+            src: register,
+            offset: _,
+        }) = p_copy.next()
+        else {
+            return None;
+        };
+        Some(Type {
+            name: name.to_string(),
+            register: Some(register.to_string()),
+        })
+    }
+
+    /// 空の型データを作成
+    pub fn empty() -> Self {
+        Type {
+            name: String::new(),
+            register: None,
+        }
+    }
 }

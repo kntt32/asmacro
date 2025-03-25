@@ -1,11 +1,21 @@
 /// Result<T, String>
 pub type SResult<T> = Result<T, String>;
 
-/// Offset in source code
+/// Result<(), ErrorMessage>
+pub type EResult = Result<(), ErrorMessage>;
+
+/// ソースコード中の位置を表現するデータ型
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Offset {
     pub column: usize,
     pub row: usize,
+}
+
+/// エラーメッセージを表現するデータ型
+#[derive(Clone, PartialEq, Debug)]
+pub struct ErrorMessage {
+    pub msg: String,
+    pub offset: Offset,
 }
 
 /// Convert str to Integer
