@@ -5,26 +5,23 @@ use asm::{
     },
     linker::object::Object,
 };
-use compiler::{
-    parser::{Parser as CParser, Token},
-    syntax_analyzer::SyntaxTree,
-};
+use compiler::parser::{Parser as CParser, Token};
 use std::{env::args, fs::File, io::Write, path::Path, process::Command};
 
-fn main() {
-    let mut parser = CParser::new("let v:u64@rax = 5;");
-    let syntax_tree = SyntaxTree::new(
-        "
-fn main () {
-    let mut v: u64 @ rax = 5;
-    v = 3;
-    main();
-}
-",
-    );
-    println!("{:?}", syntax_tree);
-    println!("{:?}", syntax_tree.check_global());
-
+fn main() { /*
+                let mut parser = CParser::new("let v:u64@rax = 5;");
+                let syntax_tree = SyntaxTree::new(
+                    "
+            fn main () {
+                let mut v: u64 @ rax = 5;
+                v = 3;
+                main();
+            }
+            ",
+                );
+                println!("{:?}", syntax_tree);
+                println!("{:?}", syntax_tree.check_global());
+            */
     /*
         let p = CParser::new(
             "

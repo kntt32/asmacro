@@ -1,277 +1,161 @@
-use crate::parser::{BracketType, Parser, Token, TokenTree, TokenType};
 use asm::assembler::register::Register;
-use util::{EResult, Offset, SResult};
+use util::{EResult, ErrorMessage, Offset};
 
-#[derive(Clone, PartialEq, Debug)]
+pub struct State {
+    variable_list: Vec<Variable>,
+    assembly: String,
+}
+
 pub struct SyntaxTree {
-    tree: Vec<SyntaxNode>,
+    tree: Vec<Box<dyn SyntaxNode>>,
+    state: State,
 }
 
-impl SyntaxTree {
-    pub fn new(src: &str) -> Self {
-        let parser = Parser::new(src);
-        Self::from_parser(parser)
-    }
-
-    /// 正しい構文ツリーであるかチェック
-    pub fn check(&mut self) -> SResult<()> {
-        todo!()
-    }
-
-    /// グローバルの構文チェックして関数リストを返す
-    pub fn check_global(&self) -> SResult<Vec<&Function>> {
-        todo!()
-    }
-
-    // 関数の構文チェック
-    pub fn check_function(function_list: &[&Function]) -> SResult<()> {
-        todo!()
-    }
-
-    /// Parserから生成
-    pub fn from_parser(mut p: Parser<'_>) -> Self {
-        todo!()
-    }
-
-    // 文を分析
-    pub fn analyze_statement(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        todo!()
-    }
-
-    // 関数定義の引数を分析
-    fn _analyze_arguments(mut p: Parser<'_>) -> Option<Vec<Variable>> {
-        todo!()
-    }
-
-    // 戻り値のない関数定義を分析
-    fn analyze_function_declaration(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        todo!()
-    }
-
-    // 戻り値のある関数定義を分析
-    fn analyze_function_declaration_with_return_value(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        todo!()
-    }
-
-    // 変数定義を分析
-    fn analyze_variable_declaration(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        todo!()
-    }
-
-    // ミュータブルな変数定義を分析
-    fn analyze_mutable_variable_declaration(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        todo!()
-    }
-
-    // 変数への代入分を分析
-    fn analyze_assignment_statement(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        todo!()
-    }
-
-    // 式を文として分析
-    fn analyze_expr_as_statement(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        todo!()
-    }
-
-    // 式を分析
-    fn analyze_expr(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        let analyzers = &[
-            Self::analyze_number_literal,
-            Self::analyze_string_literal,
-            Self::analyze_caling_function,
-        ];
-        let p_copy = *p;
-        for f in analyzers {
-            if let Some(node) = f(p) {
-                return Some(node);
-            }
-            *p = p_copy;
-        }
-        None
-    }
-
-    // 数値リテラルを分析
-    fn analyze_number_literal(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        if let Some(Token::Token {
-            r#type: TokenType::NumberLiteral,
-            src: src,
-            offset: offset,
-        }) = p.next()
-        {
-            Some(SyntaxNode::NumberLiteral {
-                src: src.to_string(),
-                offset: offset,
-            })
-        } else {
-            None
-        }
-    }
-
-    // 文字列リテラルを分析
-    fn analyze_string_literal(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        if let Some(Token::Token {
-            r#type: TokenType::StringLiteral,
-            src: src,
-            offset: offset,
-        }) = p.next()
-        {
-            Some(SyntaxNode::StringLiteral {
-                src: src.to_string(),
-                offset: offset,
-            })
-        } else {
-            None
-        }
-    }
-
-    // 関数呼び出しを分析
-    fn analyze_caling_function(p: &mut Parser<'_>) -> Option<SyntaxNode> {
-        todo!()
-    }
-
-    // 関数呼び出し時の引数を分析
-    fn _analyze_calling_arguments(mut p: Parser<'_>) -> Option<Vec<SyntaxNode>> {
-        let p_copy = p;
-        let mut arguments = Vec::new();
-        loop {
-            if p.clone().next().is_none() {
-                break;
-            }
-            let arg = Self::analyze_expr(&mut p)?;
-            arguments.push(arg);
-            match p.next() {
-                Some(Token::Token {
-                    r#type: TokenType::Symbol,
-                    src: ",",
-                    offset: _,
-                }) => (),
-                None => break,
-                _ => return None,
-            }
-        }
-        Some(arguments)
-    }
+pub trait SyntaxNode {
+    fn offset(&self) -> Offset;
+    fn as_data(&self) -> Data;
+    fn look_ahead(&self, state: &mut State);
+    fn compile(&self, state: &mut State) -> EResult;
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub enum SyntaxNode {
-    NumberLiteral {
-        src: String,
-        offset: Offset,
-    },
-    StringLiteral {
-        src: String,
-        offset: Offset,
-    },
-    FunctionDeclaration {
-        function: Function,
-        offset: Offset,
-    },
-    VariableDeclaration {
-        variable: Variable,
-        expr: Box<SyntaxNode>,
-        offset: Offset,
-    },
-    AssignmentStatement {
-        name: String,
-        expr: Box<SyntaxNode>,
-        offset: Offset,
-    },
-    CallingExpr {
-        name: String,
-        arguments: Vec<SyntaxNode>,
-    },
-    Error {
-        msg: String,
-        offset: Offset,
-    },
-}
-
-impl SyntaxNode {
-    /// 返却されるDataを返す
-    pub fn as_data<'a>(&self, function_list: &[&'a Function]) -> Option<Data> {
-        todo!()
-    }
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub struct Variable {
-    mutable: bool,
-    name: String,
-    r#type: String,
-    register: String,
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub struct Function {
-    name: String,
-    args: Vec<Variable>,
-    r#return_data: Data,
-    syntax_tree: SyntaxTree,
-}
-
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Data {
-    Some { r#type: String, register: Register },
+    Some {
+        r#type: String,
+        storage: Vec<Storage>,
+    },
     None,
 }
 
 impl Data {
-    /// Parserから型データを取得
-    pub fn from_parser(p: &mut Parser<'_>) -> Option<Self> {
-        let mut p_copy = *p;
-        match p_copy.next() {
-            Some(Token::Token {
-                r#type: TokenType::Keyword,
-                src: name,
-                offset: offset,
-            }) => {
-                let Some(Token::Token {
-                    r#type: TokenType::Symbol,
-                    src: "@",
-                    offset: _,
-                }) = p.next()
-                else {
-                    return None;
-                };
-                let Some(Token::Token {
-                    r#type: TokenType::Keyword,
-                    src: register_str,
-                    offset: _,
-                }) = p_copy.next()
-                else {
-                    return None;
-                };
-                let Ok(register) = register_str.parse() else {
-                    return None;
-                };
-                Some(Self::Some {
-                    r#type: name.to_string(),
-                    register: register,
-                })
-            }
-            Some(Token::Block {
-                r#type: BracketType::Bracket,
-                parser: mut inner_parser,
-                offset: _,
-            }) => {
-                if inner_parser.next() == None {
-                    Some(Self::None)
-                } else {
-                    todo!()
+    pub fn doubling(&self, other: &Self) -> bool {
+        match self {
+            Self::Some { storage: s1, .. } => match other {
+                Self::Some { storage: s2, .. } => {
+                    for i in s1 {
+                        for k in s2 {
+                            if i == k {
+                                return true;
+                            }
+                        }
+                    }
+                    false
                 }
-            }
-            _ => None,
+                Self::None => false,
+            },
+            Self::None => false,
         }
-    }
-
-    pub fn empty() -> Self {
-        Self::None
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub struct Type {
+#[derive(Clone, Debug, PartialEq)]
+pub enum Storage {
+    Register(Register),
+    Stack { offset: usize, size: usize },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Lifetime {
+    start: Offset,
+    end: Option<Offset>,
+}
+
+impl Lifetime {
+    pub fn alive(&self, offset: Offset) -> bool {
+        if self.start <= offset {
+            if let Some(self_end) = self.end {
+                offset < self_end
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Variable {
     name: String,
-    allowed_registers: Vec<Register>,
+    data: Data,
+    mutable: bool,
+    lifetime: Lifetime,
+}
+
+pub struct VariableDeclaration {
+    variable: Variable,
+    expr: Box<dyn SyntaxNode>,
+    offset: Offset,
+}
+
+impl SyntaxNode for VariableDeclaration {
+    fn offset(&self) -> Offset {
+        self.offset
+    }
+
+    fn as_data(&self) -> Data {
+        Data::None
+    }
+
+    fn look_ahead(&self, state: &mut State) {
+        self.expr.look_ahead(state);
+        for i in &mut state.variable_list {
+            let alive = i.lifetime.alive(self.variable.lifetime.start);
+            if alive && (i.name == self.variable.name || i.data.doubling(&self.variable.data)) {
+                i.lifetime.end = Some(self.variable.lifetime.start);
+            }
+        }
+        state.variable_list.push(self.variable.clone());
+    }
+
+    fn compile(&self, state: &mut State) -> EResult {
+        let expr_data = self.expr.as_data();
+        if expr_data == self.variable.data {
+            self.expr.compile(state)
+        } else {
+            Err(ErrorMessage {
+                msg: format!("mismatching data"),
+                offset: self.offset,
+            })
+        }
+    }
+}
+
+pub struct VariableAssignment {
+    name: String,
+    expr: Box<dyn SyntaxNode>,
+    offset: Offset,
+}
+
+impl SyntaxNode for VariableAssignment {
+    fn offset(&self) -> Offset {
+        self.offset
+    }
+
+    fn as_data(&self) -> Data {
+        Data::None
+    }
+
+    fn look_ahead(&self, state: &mut State) {}
+
+    fn compile(&self, state: &mut State) -> EResult {
+        for i in &state.variable_list {
+            if i.name == self.name && i.lifetime.alive(self.offset) {
+                let variable = i;
+                let expr_data = self.expr.as_data();
+                let variable_data = &variable.data;
+                if &expr_data == variable_data {
+                    todo!()
+                    // return Ok();
+                } else {
+                    todo!()
+                    // return
+                }
+            }
+        }
+        Err(ErrorMessage {
+            msg: format!("Variable \"{}\" is undefined.", self.name),
+            offset: self.offset,
+        })
+    }
 }

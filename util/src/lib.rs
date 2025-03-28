@@ -1,3 +1,5 @@
+use std::cmp::{Ord, Ordering, PartialOrd};
+
 /// Result<T, String>
 pub type SResult<T> = Result<T, String>;
 
@@ -5,10 +7,25 @@ pub type SResult<T> = Result<T, String>;
 pub type EResult = Result<(), ErrorMessage>;
 
 /// ソースコード中の位置を表現するデータ型
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Offset {
     pub column: usize,
     pub row: usize,
+}
+
+impl PartialOrd for Offset {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(match self.row.cmp(&other.row) {
+            Ordering::Equal => self.column.cmp(&other.column),
+            o => o,
+        })
+    }
+}
+
+impl Ord for Offset {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).expect("internal error")
+    }
 }
 
 /// エラーメッセージを表現するデータ型
