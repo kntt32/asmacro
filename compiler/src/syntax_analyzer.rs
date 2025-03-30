@@ -15,7 +15,7 @@ impl State {
         State {
             variable_list: Vec::new(),
             function_list: Vec::new(),
-            type_list: Vec::new(),
+            type_list: Type::primitive_types(),
             assembly: String::new(),
         }
     }
@@ -33,7 +33,7 @@ pub trait SyntaxNode {
     fn offset(&self) -> Offset;
 
     /// 式として返すデータを返す関数
-    fn as_data(&self) -> Data;
+    fn as_data(&self, state: &State) -> Data;
 
     /// コンパイル時の先読みを行う関数
     fn look_ahead(&self, state: &mut State) -> SResult<()>;
@@ -47,7 +47,7 @@ pub trait SyntaxNode {
 pub enum Data {
     Some {
         r#type: String,
-        storage: Vec<Storage>,
+        storage: Vec<Register>,
     },
     None,
 }
@@ -60,7 +60,7 @@ impl Data {
                 Self::Some { storage: s2, .. } => {
                     for i in s1 {
                         for k in s2 {
-                            if i.doubling(k) {
+                            if i == k {
                                 return true;
                             }
                         }
@@ -78,75 +78,17 @@ impl Data {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Type {
     name: String,
-    storage: Vec<Storage>,
+    storage: Vec<Register>,
 }
 
 impl Type {
     /// プリミティブなデータ型のリストを返す
-    pub fn primitive_types() -> Vec<Self> {
+    pub fn primitive_types() -> Vec<Rc<RefCell<Self>>> {
         let u32 = Type {
             name: "u32".to_string(),
-            storage: vec![
-                Storage::Register(Register::Eax),
-                Storage::Register(Register::Ecx),
-                Storage::Register(Register::Edx),
-                Storage::Register(Register::Ebx),
-            ],
+            storage: vec![Register::Eax, Register::Ecx, Register::Edx, Register::Ebx],
         };
-        vec![u32]
-    }
-}
-
-/// データの保存先を表す列挙体
-#[derive(Clone, Debug, PartialEq)]
-pub enum Storage {
-    Register(Register),
-    Stack { offset: usize, size: usize },
-}
-
-impl Storage {
-    /// 保存先がレジスタであるかどうか
-    pub fn is_register(&self) -> bool {
-        if let Self::Register(..) = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    /// 保存先がスタックであるかどうか
-    pub fn is_stack(&self) -> bool {
-        if let Self::Stack { .. } = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    /// 保存先が重なっているかどうか
-    pub fn doubling(&self, other: &Self) -> bool {
-        match self {
-            Self::Register(self_register) => match other {
-                Self::Register(other_register) => self_register == other_register,
-                Self::Stack { .. } => false,
-            },
-            Self::Stack {
-                offset: self_offset,
-                size: self_size,
-            } => match other {
-                Self::Register(..) => false,
-                Self::Stack {
-                    offset: other_offset,
-                    size: other_size,
-                } => {
-                    let self_start = *self_offset;
-                    let self_end = *self_offset + *self_size;
-                    let other_start = *other_offset;
-                    let other_end = *other_offset + *other_size;
-                    !(self_end <= other_start || other_end <= self_start)
-                }
-            },
-        }
+        vec![Rc::new(RefCell::new(u32))]
     }
 }
 
@@ -208,8 +150,35 @@ impl Variable {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
     name: String,
-    arguments: Vec<Variable>,
+    arguments: Vec<Rc<RefCell<Variable>>>,
     data: Data,
+}
+
+/// 数値リテラルを表すSyntaxNode
+pub struct NumberLiteral {
+    value: String,
+    offset: Offset,
+}
+
+impl SyntaxNode for NumberLiteral {
+    fn offset(&self) -> Offset {
+        self.offset
+    }
+
+    fn as_data(&self, state: &State) -> Data {
+        Data::Some {
+            r#type: "i32".to_string(),
+            storage: vec![Register::Eax],
+        }
+    }
+
+    fn look_ahead(&self, state: &mut State) -> SResult<()> {
+        todo!()
+    }
+
+    fn compile(&self, state: &mut State) -> SResult<()> {
+        todo!()
+    }
 }
 
 /// 変数定義宣言を行うSyntaxNode
@@ -224,7 +193,7 @@ impl SyntaxNode for VariableDeclaration {
         self.offset
     }
 
-    fn as_data(&self) -> Data {
+    fn as_data(&self, state: &State) -> Data {
         Data::None
     }
 
@@ -246,7 +215,7 @@ impl SyntaxNode for VariableDeclaration {
     }
 
     fn compile(&self, state: &mut State) -> SResult<()> {
-        let expr_data = self.expr.as_data();
+        let expr_data = self.expr.as_data(state);
         let self_variable = self.variable.borrow();
         if expr_data == self_variable.data {
             self.expr.compile(state)?;
@@ -268,7 +237,7 @@ impl SyntaxNode for VariableAssignment {
         self.offset
     }
 
-    fn as_data(&self) -> Data {
+    fn as_data(&self, state: &State) -> Data {
         Data::None
     }
 
@@ -282,7 +251,7 @@ impl SyntaxNode for VariableAssignment {
         for i in &state.variable_list {
             let i_variable = i.borrow();
             if i_variable.name == self.name && i_variable.lifetime.alive(self.offset) {
-                if i_variable.data == self.expr.as_data() {
+                if i_variable.data == self.expr.as_data(state) {
                     if i_variable.mutable {
                         error_flag = false;
                         break;
@@ -302,9 +271,9 @@ impl SyntaxNode for VariableAssignment {
     }
 }
 
-/*
 pub struct FunctionDeclaration {
-    function: Function,
+    function: Rc<RefCell<Function>>,
+    expr: Vec<Box<dyn SyntaxNode>>,
     offset: Offset,
 }
 
@@ -313,29 +282,51 @@ impl SyntaxNode for FunctionDeclaration {
         self.offset
     }
 
-    fn as_data(&self) -> Data {
-        self.function.data.clone()
+    fn as_data(&self, state: &State) -> Data {
+        self.function.borrow().data.clone()
     }
 
     fn look_ahead(&self, state: &mut State) -> SResult<()> {
         for i in &state.function_list {
-            if i.name == self.function.name {
-                return Err(format!("Function \"{}\" is defined multiple times.", &self.function.name));
+            let self_name = &self.function.borrow().name;
+            let i_name = &i.borrow().name;
+            if self_name == i_name {
+                return Err(format!(
+                    "function \"{}\" is defined multiple times.",
+                    self_name
+                ));
             }
         }
+
         state.function_list.push(self.function.clone());
         Ok(())
     }
 
-    fn compile(&self, state: &mut State) -> EResult {
-        todo!();
+    fn compile(&self, state: &mut State) -> SResult<()> {
+        let mut child_state = State {
+            variable_list: self.function.borrow().arguments.clone(),
+            function_list: state.function_list.clone(),
+            type_list: state.type_list.clone(),
+            assembly: String::new(),
+        };
+
+        for i in &self.expr {
+            i.look_ahead(&mut child_state)?;
+        }
+        for i in &self.expr {
+            i.compile(&mut child_state)?;
+        }
+
+        state.assembly += "\n";
+        state.assembly += &self.function.borrow().name;
+        state.assembly += ":\n";
+        state.assembly += &child_state.assembly;
+
+        Ok(())
     }
 }
 
-
-pub struct CallingExpr {
+pub struct CallingFunctionExpr {
     name: String,
-    arguments: Vec<dyn SyntaxNode>,
+    arguments: Vec<Box<dyn SyntaxNode>>,
 }
-
-*/

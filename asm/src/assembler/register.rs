@@ -82,6 +82,10 @@ pub enum Register {
 pub type RegisterCode = (Option<bool>, u8);
 
 impl Register {
+    pub fn doubling(self, other: Self) -> bool {
+        todo!()
+    }
+
     /// If this register is 64bit
     pub fn is_64bit(self) -> bool {
         const RAX_USIZE: usize = Register::Rax as usize;
