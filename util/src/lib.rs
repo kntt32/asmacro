@@ -9,8 +9,8 @@ pub type EResult = Result<(), ErrorMessage>;
 /// ソースコード中の位置を表現するデータ型
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Offset {
-    pub column: usize,
     pub row: usize,
+    pub column: usize,
 }
 
 impl PartialOrd for Offset {

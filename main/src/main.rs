@@ -2,36 +2,39 @@ use asm::{
     assembler::{
         line::{instruction::Instruction, pseudo::Pseudo},
         parser::Parser,
+        register::Register,
     },
     linker::object::Object,
 };
 use compiler::parser::{Parser as CParser, Token};
+use compiler::syntax_analyzer::{
+    Data, Lifetime, NumberLiteral, SyntaxNode, SyntaxTree, Variable, VariableDeclaration,
+};
 use std::{env::args, fs::File, io::Write, path::Path, process::Command};
+use util::Offset;
 
-fn main() { /*
-                let mut parser = CParser::new("let v:u64@rax = 5;");
-                let syntax_tree = SyntaxTree::new(
-                    "
-            fn main () {
-                let mut v: u64 @ rax = 5;
-                v = 3;
-                main();
-            }
-            ",
-                );
-                println!("{:?}", syntax_tree);
-                println!("{:?}", syntax_tree.check_global());
-            */
-    /*
-        let p = CParser::new(
-            "
-        fn main() {
-        5
-        }
-        ",
-        );
-        compiler_demo(p);
-    */
+fn main() {
+    let data = Data::Some {
+        r#type: "i32".to_string(),
+        storage: vec![Register::Eax],
+    };
+    let lifetime = Lifetime::new(Offset { row: 0, column: 0 }, None);
+    let variable = Variable::new("a".to_string(), data, false, lifetime);
+    let expr: Box<dyn SyntaxNode> = Box::new(NumberLiteral::new(
+        "1327".to_string(),
+        Offset { row: 0, column: 10 },
+    ));
+    let variable_declaration =
+        VariableDeclaration::new(variable, expr, Offset { row: 0, column: 0 });
+    let tree: Vec<Box<dyn SyntaxNode>> = vec![
+        Box::new(variable_declaration),
+        Box::new(NumberLiteral::new(
+            "123456".to_string(),
+            Offset { row: 10, column: 0 },
+        )),
+    ];
+    let mut syntaxtree = SyntaxTree::new(tree);
+    println!("{:?}", syntaxtree.compile());
 }
 
 #[allow(unused)]

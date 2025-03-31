@@ -1,8 +1,9 @@
 use asm::assembler::register::Register;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, cmp::min, rc::Rc};
 use util::{ErrorMessage, Offset, SResult};
 
 /// コンパイル中に情報を記録するための型
+#[derive(Clone, Debug)]
 pub struct State {
     variable_list: Vec<Rc<RefCell<Variable>>>,
     function_list: Vec<Rc<RefCell<Function>>>,
@@ -25,6 +26,29 @@ impl State {
 pub struct SyntaxTree {
     tree: Vec<Box<dyn SyntaxNode>>,
     state: State,
+}
+
+impl SyntaxTree {
+    pub fn new(tree: Vec<Box<dyn SyntaxNode>>) -> Self {
+        SyntaxTree {
+            tree: tree,
+            state: State::new(),
+        }
+    }
+
+    pub fn compile(mut self) -> SResult<String> {
+        println!("debug0: {:?}\n", self.state);
+        for i in &mut self.tree {
+            println!("debuga: {:?}\n", self.state);
+            i.look_ahead(&mut self.state)?;
+        }
+        println!("debug1: {:?}\n", self.state);
+        for i in &mut self.tree {
+            i.compile(&mut self.state)?;
+        }
+        println!("debug2: {:?}\n", self.state);
+        Ok(self.state.assembly)
+    }
 }
 
 /// 構文ツリーの要素となるためのトレイト
@@ -60,7 +84,7 @@ impl Data {
                 Self::Some { storage: s2, .. } => {
                     for i in s1 {
                         for k in s2 {
-                            if i == k {
+                            if i.doubling(*k) {
                                 return true;
                             }
                         }
@@ -100,6 +124,40 @@ pub struct Lifetime {
 }
 
 impl Lifetime {
+    // Lifetime型のコンストラクタ
+    pub fn new(start: Offset, end: Option<Offset>) -> Self {
+        Lifetime {
+            start: start,
+            end: end,
+        }
+    }
+
+    /// ライフタイムの開始を取得する関数
+    pub fn start(&self) -> Offset {
+        self.start
+    }
+
+    /// ライフタイムの寿命を取得する関数
+    pub fn end(&self) -> Option<Offset> {
+        self.end
+    }
+
+    /// ライフタイムの寿命を設定する関数
+    /// すでにセットされている値と、渡された値のうち、早い方がセットされる
+    pub fn set_end(&mut self, offset: Offset) {
+        let min_offset = if let Some(self_end) = self.end {
+            min(self_end, offset)
+        } else {
+            offset
+        };
+        self.end = Some(min_offset);
+    }
+
+    /// ライフタイムの寿命が存在するか判定する関数
+    pub fn exist_end(&self) -> bool {
+        self.end.is_some()
+    }
+
     /// ソース中offsetでlifetimeが生存しているか判定する関数
     pub fn alive(&self, offset: Offset) -> bool {
         if self.start <= offset {
@@ -138,6 +196,16 @@ pub struct Variable {
 }
 
 impl Variable {
+    /// Variable型のコンストラクタ
+    pub fn new(name: String, data: Data, mutable: bool, lifetime: Lifetime) -> Self {
+        Variable {
+            name: name,
+            data: data,
+            mutable: mutable,
+            lifetime: lifetime,
+        }
+    }
+
     pub fn doubling(&self, other: &Self) -> bool {
         let doubling_name = self.name == other.name;
         let doubling_data = self.data.doubling(&other.data);
@@ -160,6 +228,15 @@ pub struct NumberLiteral {
     offset: Offset,
 }
 
+impl NumberLiteral {
+    pub fn new(value: String, offset: Offset) -> Self {
+        NumberLiteral {
+            value: value,
+            offset: offset,
+        }
+    }
+}
+
 impl SyntaxNode for NumberLiteral {
     fn offset(&self) -> Offset {
         self.offset
@@ -173,11 +250,26 @@ impl SyntaxNode for NumberLiteral {
     }
 
     fn look_ahead(&self, state: &mut State) -> SResult<()> {
-        todo!()
+        for i in &mut state.variable_list {
+            let mut i_variable = i.borrow_mut();
+            if i_variable.lifetime.alive(self.offset) {
+                let self_data = Data::Some {
+                    r#type: "i32".to_string(),
+                    storage: vec![Register::Eax],
+                };
+                if i_variable.data.doubling(&self_data) {
+                    i_variable.lifetime.end = Some(self.offset);
+                }
+            }
+        }
+        Ok(())
     }
 
     fn compile(&self, state: &mut State) -> SResult<()> {
-        todo!()
+        state.assembly += "mov rax ";
+        state.assembly += &self.value;
+        state.assembly += "\n";
+        Ok(())
     }
 }
 
@@ -186,6 +278,16 @@ pub struct VariableDeclaration {
     variable: Rc<RefCell<Variable>>,
     expr: Box<dyn SyntaxNode>,
     offset: Offset,
+}
+
+impl VariableDeclaration {
+    pub fn new(variable: Variable, expr: Box<dyn SyntaxNode>, offset: Offset) -> Self {
+        VariableDeclaration {
+            variable: Rc::new(RefCell::new(variable)),
+            expr: expr,
+            offset: offset,
+        }
+    }
 }
 
 impl SyntaxNode for VariableDeclaration {
