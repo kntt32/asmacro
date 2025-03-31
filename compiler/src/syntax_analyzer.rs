@@ -1,5 +1,5 @@
 use asm::assembler::register::Register;
-use std::{cell::RefCell, cmp::min, rc::Rc};
+use std::{cell::Ref, cell::RefCell, cmp::min, rc::Rc};
 use util::{ErrorMessage, Offset, SResult};
 
 /// コンパイル中に情報を記録するための型
@@ -19,6 +19,56 @@ impl State {
             type_list: Type::primitive_types(),
             assembly: String::new(),
         }
+    }
+
+    pub fn add_variable(&mut self, variable: Rc<RefCell<Variable>>) {
+        for i in &mut self.variable_list {
+            let mut i_borrow_mut = i.borrow_mut();
+            let mut variable_borrow_mut = variable.borrow_mut();
+
+            if i_borrow_mut.doubling(&*variable_borrow_mut) {
+                let i_lifetime = &mut i_borrow_mut.lifetime;
+                let variable_lifetime = &mut variable_borrow_mut.lifetime;
+
+                if i_lifetime.start() <= variable_lifetime.start() {
+                    i_lifetime.set_end(variable_lifetime.start());
+                } else {
+                    variable_lifetime.set_end(i_lifetime.start());
+                }
+            }
+        }
+
+        self.variable_list.push(variable);
+    }
+
+    pub fn get_variable(&self, name: &str, offset: Offset) -> Option<Ref<Variable>> {
+        for i in &self.variable_list {
+            let i_borrow = i.borrow();
+
+            if i_borrow.name == name && i_borrow.lifetime.alive(offset) {
+                return Some(i_borrow);
+            }
+        }
+        None
+    }
+
+    pub fn add_data(&mut self, data: &Data, offset: Offset) {
+        if let Data::Some {
+            r#type: r#type,
+            storage: storage,
+        } = data
+        {
+            for i in &mut self.variable_list {
+                let mut i_borrow_mut = i.borrow_mut();
+                if i_borrow_mut.lifetime.alive(offset) {
+                    i_borrow_mut.lifetime.set_end(offset);
+                }
+            }
+        }
+    }
+
+    pub fn add_function(&self, function: Rc<RefCell<Function>>) {
+        todo!()
     }
 }
 
@@ -57,7 +107,7 @@ pub trait SyntaxNode {
     fn offset(&self) -> Offset;
 
     /// 式として返すデータを返す関数
-    fn as_data(&self, state: &State) -> Data;
+    fn as_data(&self, state: &State) -> SResult<Data>;
 
     /// コンパイル時の先読みを行う関数
     fn look_ahead(&self, state: &mut State) -> SResult<()>;
@@ -242,26 +292,16 @@ impl SyntaxNode for NumberLiteral {
         self.offset
     }
 
-    fn as_data(&self, state: &State) -> Data {
-        Data::Some {
+    fn as_data(&self, state: &State) -> SResult<Data> {
+        Ok(Data::Some {
             r#type: "i32".to_string(),
             storage: vec![Register::Eax],
-        }
+        })
     }
 
     fn look_ahead(&self, state: &mut State) -> SResult<()> {
-        for i in &mut state.variable_list {
-            let mut i_variable = i.borrow_mut();
-            if i_variable.lifetime.alive(self.offset) {
-                let self_data = Data::Some {
-                    r#type: "i32".to_string(),
-                    storage: vec![Register::Eax],
-                };
-                if i_variable.data.doubling(&self_data) {
-                    i_variable.lifetime.end = Some(self.offset);
-                }
-            }
-        }
+        let data = self.as_data(state)?;
+        state.add_data(&data, self.offset());
         Ok(())
     }
 
@@ -295,29 +335,18 @@ impl SyntaxNode for VariableDeclaration {
         self.offset
     }
 
-    fn as_data(&self, state: &State) -> Data {
-        Data::None
+    fn as_data(&self, state: &State) -> SResult<Data> {
+        Ok(Data::None)
     }
 
     fn look_ahead(&self, state: &mut State) -> SResult<()> {
         self.expr.look_ahead(state)?;
-
-        for i in &mut state.variable_list {
-            let mut i_variable = i.borrow_mut();
-            let mut self_variable = self.variable.borrow_mut();
-            if i_variable.name == self_variable.name {
-                if i_variable.lifetime.doubling(&self_variable.lifetime) {
-                    i_variable.lifetime.end = Some(self_variable.lifetime.start);
-                }
-            }
-        }
-
-        state.variable_list.push(self.variable.clone());
+        state.add_variable(self.variable.clone());
         Ok(())
     }
 
     fn compile(&self, state: &mut State) -> SResult<()> {
-        let expr_data = self.expr.as_data(state);
+        let expr_data = self.expr.as_data(state)?;
         let self_variable = self.variable.borrow();
         if expr_data == self_variable.data {
             self.expr.compile(state)?;
@@ -334,13 +363,23 @@ pub struct VariableAssignment {
     offset: Offset,
 }
 
+impl VariableAssignment {
+    pub fn new(name: String, expr: Box<dyn SyntaxNode>, offset: Offset) -> Self {
+        VariableAssignment {
+            name: name,
+            expr: expr,
+            offset: offset,
+        }
+    }
+}
+
 impl SyntaxNode for VariableAssignment {
     fn offset(&self) -> Offset {
         self.offset
     }
 
-    fn as_data(&self, state: &State) -> Data {
-        Data::None
+    fn as_data(&self, state: &State) -> SResult<Data> {
+        Ok(Data::None)
     }
 
     fn look_ahead(&self, state: &mut State) -> SResult<()> {
@@ -348,27 +387,56 @@ impl SyntaxNode for VariableAssignment {
     }
 
     fn compile(&self, state: &mut State) -> SResult<()> {
-        let mut error_flag = true;
-
-        for i in &state.variable_list {
-            let i_variable = i.borrow();
-            if i_variable.name == self.name && i_variable.lifetime.alive(self.offset) {
-                if i_variable.data == self.expr.as_data(state) {
-                    if i_variable.mutable {
-                        error_flag = false;
-                        break;
-                    } else {
-                        return Err(format!("Variable \"{}\" is not mutable.", i_variable.name));
-                    }
-                } else {
-                    return Err(format!("Missing data type."));
-                }
+        if let Some(variable) = state.get_variable(&self.name, self.offset()) {
+            if !variable.mutable {
+                return Err(format!("variable \"{}\" is not mutable.", variable.name));
+            } else if variable.data != self.expr.as_data(state)? {
+                return Err(format!("mismatching data type."));
             }
-        }
-        if error_flag {
-            Err(format!("Variable \"{}\" is not defined.", self.name))
         } else {
-            self.expr.compile(state)
+            return Err(format!("variable \"{}\" is not defined.", self.name));
+        }
+        self.expr.compile(state)?;
+        Ok(())
+    }
+}
+
+pub struct VariableReference {
+    name: String,
+    offset: Offset,
+}
+
+impl VariableReference {
+    pub fn new(name: String, offset: Offset) -> Self {
+        VariableReference {
+            name: name,
+            offset: offset,
+        }
+    }
+}
+
+impl SyntaxNode for VariableReference {
+    fn offset(&self) -> Offset {
+        self.offset
+    }
+
+    fn as_data(&self, state: &State) -> SResult<Data> {
+        if let Some(variable) = state.get_variable(&self.name, self.offset) {
+            Ok(variable.data.clone())
+        } else {
+            Err(format!("variable \"{}\" is not defined.", self.name))
+        }
+    }
+
+    fn look_ahead(&self, state: &mut State) -> SResult<()> {
+        Ok(())
+    }
+
+    fn compile(&self, state: &mut State) -> SResult<()> {
+        if let Some(variable) = state.get_variable(&self.name, self.offset) {
+            Ok(())
+        } else {
+            Err(format!("variable \"{}\" is not defined.", self.name))
         }
     }
 }
@@ -384,8 +452,8 @@ impl SyntaxNode for FunctionDeclaration {
         self.offset
     }
 
-    fn as_data(&self, state: &State) -> Data {
-        self.function.borrow().data.clone()
+    fn as_data(&self, state: &State) -> SResult<Data> {
+        Ok(Data::None)
     }
 
     fn look_ahead(&self, state: &mut State) -> SResult<()> {

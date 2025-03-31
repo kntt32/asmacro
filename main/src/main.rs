@@ -8,7 +8,8 @@ use asm::{
 };
 use compiler::parser::{Parser as CParser, Token};
 use compiler::syntax_analyzer::{
-    Data, Lifetime, NumberLiteral, SyntaxNode, SyntaxTree, Variable, VariableDeclaration,
+    Data, Lifetime, NumberLiteral, SyntaxNode, SyntaxTree, Variable, VariableAssignment,
+    VariableDeclaration,
 };
 use std::{env::args, fs::File, io::Write, path::Path, process::Command};
 use util::Offset;
@@ -19,15 +20,24 @@ fn main() {
         storage: vec![Register::Eax],
     };
     let lifetime = Lifetime::new(Offset { row: 0, column: 0 }, None);
-    let variable = Variable::new("a".to_string(), data, false, lifetime);
+    let variable = Variable::new("a".to_string(), data, true, lifetime);
     let expr: Box<dyn SyntaxNode> = Box::new(NumberLiteral::new(
         "1327".to_string(),
         Offset { row: 0, column: 10 },
     ));
     let variable_declaration =
         VariableDeclaration::new(variable, expr, Offset { row: 0, column: 0 });
+    let variable_assignment = VariableAssignment::new(
+        "a".to_string(),
+        Box::new(NumberLiteral::new(
+            "2927".to_string(),
+            Offset { row: 10, column: 0 },
+        )),
+        Offset { row: 5, column: 0 },
+    );
     let tree: Vec<Box<dyn SyntaxNode>> = vec![
         Box::new(variable_declaration),
+        Box::new(variable_assignment),
         Box::new(NumberLiteral::new(
             "123456".to_string(),
             Offset { row: 10, column: 0 },
