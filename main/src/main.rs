@@ -7,63 +7,11 @@ use asm::{
     linker::object::Object,
 };
 use compiler::parser::{Parser as CParser, Token};
-use compiler::syntax_analyzer::{
-    Data, Lifetime, MovingStorageExpr, NumberLiteral, SyntaxNode, SyntaxTree, Variable,
-    VariableAssignment, VariableDeclaration,
-};
 use std::{env::args, fs::File, io::Write, path::Path, process::Command};
 use util::Offset;
 
 fn main() {
-    let data = Data::Some {
-        r#type: "i32".to_string(),
-        storage: vec![Register::Eax],
-    };
-    let lifetime = Lifetime::new(Offset { row: 0, column: 0 }, None);
-    let variable = Variable::new("a".to_string(), data, true, lifetime);
-    let expr: Box<dyn SyntaxNode> = Box::new(NumberLiteral::new(
-        "1327".to_string(),
-        Offset { row: 0, column: 10 },
-    ));
-    let variable_declaration =
-        VariableDeclaration::new(variable, expr, Offset { row: 0, column: 0 });
-    let variable_assignment = VariableAssignment::new(
-        "a".to_string(),
-        Box::new(NumberLiteral::new(
-            "2927".to_string(),
-            Offset { row: 10, column: 0 },
-        )),
-        Offset { row: 5, column: 0 },
-    );
-    let data_b = Data::Some {
-        r#type: "i32".to_string(),
-        storage: vec![Register::Edx],
-    };
-    let lifetime_b = Lifetime::new(Offset { row: 15, column: 0 }, None);
-    let variable_b = Variable::new("b".to_string(), data_b, false, lifetime_b);
-    let expr_b_literal: Box<dyn SyntaxNode> = Box::new(NumberLiteral::new(
-        "32".to_string(),
-        Offset { row: 15, column: 5 },
-    ));
-    let expr_b: Box<dyn SyntaxNode> = Box::new(MovingStorageExpr::new(
-        expr_b_literal,
-        vec![Register::Edx],
-        Offset { row: 15, column: 5 },
-    ));
-    let variable_declaration_b =
-        VariableDeclaration::new(variable_b, expr_b, Offset { row: 15, column: 0 });
-
-    let tree: Vec<Box<dyn SyntaxNode>> = vec![
-        Box::new(variable_declaration),
-        Box::new(variable_assignment),
-        Box::new(NumberLiteral::new(
-            "123456".to_string(),
-            Offset { row: 10, column: 0 },
-        )),
-        Box::new(variable_declaration_b),
-    ];
-    let mut syntaxtree = SyntaxTree::new(tree);
-    println!("{:?}", syntaxtree.compile());
+    println!("hello, world!");
 }
 
 #[allow(unused)]
