@@ -146,6 +146,28 @@ impl Data {
             Self::None => false,
         }
     }
+
+    /// DataがTypeに対して正当であるか判定
+    pub fn check(&self, t: &Type) -> Option<bool> {
+        match self {
+            Self::Some {
+                r#type: self_type,
+                storage: self_storage,
+            } => {
+                if self_type == &t.name {
+                    for i in self_storage {
+                        if !t.storage.contains(i) {
+                            return Some(false);
+                        }
+                    }
+                    Some(true)
+                } else {
+                    None
+                }
+            }
+            Self::None => None,
+        }
+    }
 }
 
 /// データ型を表す構造体
@@ -162,7 +184,11 @@ impl Type {
             name: "u32".to_string(),
             storage: vec![Register::Eax, Register::Ecx, Register::Edx, Register::Ebx],
         };
-        vec![Rc::new(RefCell::new(u32))]
+        let i32 = Type {
+            name: "i32".to_string(),
+            storage: vec![Register::Eax, Register::Ecx, Register::Edx, Register::Ebx],
+        };
+        vec![Rc::new(RefCell::new(u32)), Rc::new(RefCell::new(i32))]
     }
 }
 
@@ -437,6 +463,89 @@ impl SyntaxNode for VariableReference {
             Ok(())
         } else {
             Err(format!("variable \"{}\" is not defined.", self.name))
+        }
+    }
+}
+
+pub struct MovingStorageExpr {
+    expr: Box<dyn SyntaxNode>,
+    storage: Vec<Register>,
+    offset: Offset,
+}
+
+impl MovingStorageExpr {
+    pub fn new(expr: Box<dyn SyntaxNode>, storage: Vec<Register>, offset: Offset) -> Self {
+        MovingStorageExpr {
+            expr: expr,
+            storage: storage,
+            offset: offset,
+        }
+    }
+}
+
+impl SyntaxNode for MovingStorageExpr {
+    fn offset(&self) -> Offset {
+        self.offset
+    }
+
+    fn as_data(&self, state: &State) -> SResult<Data> {
+        let expr_data = self.expr.as_data(state)?;
+        let Data::Some {
+            r#type: ref expr_type_name,
+            ..
+        } = expr_data
+        else {
+            return Err(format!("invalid convertion"));
+        };
+
+        for i in &state.type_list {
+            let i_borrow = i.borrow();
+            match expr_data.check(&*i_borrow) {
+                Some(true) => {
+                    let new_data = Data::Some {
+                        r#type: expr_type_name.clone(),
+                        storage: self.storage.clone(),
+                    };
+                    return match new_data.check(&*i_borrow) {
+                        Some(true) => Ok(new_data),
+                        Some(false) => Err(format!("invalid convertion")),
+                        None => panic!("internal error"),
+                    };
+                }
+                Some(false) => return Err(format!("mismatching data")),
+                None => (),
+            }
+        }
+        Err(format!("invalid convertion"))
+    }
+
+    fn look_ahead(&self, state: &mut State) -> SResult<()> {
+        self.expr.look_ahead(state)
+    }
+
+    fn compile(&self, state: &mut State) -> SResult<()> {
+        let Data::Some {
+            r#type: new_data_type,
+            storage: new_data_storage,
+        } = self.as_data(state)?
+        else {
+            panic!("internal error");
+        };
+        let Data::Some {
+            r#type: old_data_type,
+            storage: old_data_storage,
+        } = self.expr.as_data(state)?
+        else {
+            panic!("internal error");
+        };
+        self.expr.compile(state)?;
+        if new_data_type == old_data_type && new_data_storage.len() == old_data_storage.len() {
+            for i in 0..new_data_storage.len() {
+                state.assembly += &format!("mov {} {}\n", new_data_storage[i], old_data_storage[i]);
+            }
+            Ok(())
+        } else {
+            Err(format!("invalid conversion"))
         }
     }
 }
