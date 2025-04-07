@@ -1,38 +1,61 @@
 use asm::assembler::register::Register;
-use std::{cell::Ref, cell::RefCell, cmp::min, rc::Rc};
+use std::{
+    cell::Ref,
+    cell::RefCell,
+    cmp::min,
+    rc::{Rc, Weak},
+    str::FromStr,
+};
 use util::{ErrorMessage, Offset, SResult};
 
-pub mod syntax_nodes;
+pub mod syntax_node;
 
-/// 構文ツリーの要素となるためのトレイト
+/// 構文ツリーの要素のためのトレイト
 pub trait SyntaxNode {
-    /// コンパイル時の先読みを行い、式として返すObjectを返却する関数
-    fn look_ahead(&self, state: &mut State) -> SResult<Option<Rc<RefCell<Object>>>>;
-
-    /// コンパイルし、アセンブリをState.assemblyに追記する
-    fn compile(&self, state: &mut State) -> SResult<()>;
+    fn look_ahead(&mut self, state: Rc<dyn CompilerState>);
+    fn data(&self, state: Rc<dyn CompilerState>) -> SResult<Option<Data>>;
+    fn compile(&self, state: Rc<dyn CompilerState>);
 }
 
-/// コンパイル中に情報を記録するための型
-#[derive(Clone, Debug)]
-pub struct State {
-    function_list: Vec<Rc<RefCell<Function>>>,
-    type_list: Vec<Rc<RefCell<Type>>>,
-    object_list: Vec<Rc<RefCell<Object>>>,
-    assembly: String,
+/// コンパイル中に情報を記録するためのデータ型のトレイト
+pub trait CompilerState {
+    fn child_for_proc(self: Rc<Self>) -> SResult<Rc<dyn CompilerState>>;
+
+    fn add_function(self: Rc<Self>, function: Function) -> SResult<()>;
+    fn get_function(self: Rc<Self>, name: &str) -> Option<Function>;
+
+    fn add_type(self: Rc<Self>, r#type: Type) -> SResult<()>;
+    fn get_type(self: Rc<Self>, name: &str) -> Option<Type>;
+
+    fn clean_object(self: Rc<Self>);
+    fn add_object(self: Rc<Self>, object: Object) -> SResult<()>;
+    fn get_object_by_name(self: Rc<Self>, name: &str) -> Option<Object>;
+    fn get_object_by_register(self: Rc<Self>, register: Register) -> Option<Object>;
+    fn drop_object_by_name(self: Rc<Self>, name: &str);
+    fn drop_object_by_register(self: Rc<Self>, register: Register);
+
+    fn add_asm(self: Rc<Self>, code: &str);
+    fn add_error(self: Rc<Self>, offset: Offset, msg: String);
 }
 
-/// 構文ツリー
+/// 構文ツリーを表現する構造体
 pub struct SyntaxTree {
     tree: Vec<Box<dyn SyntaxNode>>,
-    state: State,
+    state: Rc<dyn CompilerState>,
 }
 
-/// データや変数のライフタイムを表す構造体
-#[derive(Clone, Debug, PartialEq)]
-pub struct Lifetime {
-    pub start: Offset,
-    pub end: Option<Offset>,
+/// グローバルなCompilerState
+pub struct GlobalState {
+    function_list: RefCell<Vec<Function>>,
+    type_list: RefCell<Vec<Type>>,
+    assembly: RefCell<String>,
+    error: RefCell<Vec<(Offset, String)>>,
+}
+
+/// プロシージャ用のCompilerState
+pub struct ProcState {
+    parent: Weak<dyn CompilerState>,
+    object_list: RefCell<Vec<Object>>,
 }
 
 /// データ型を表す構造体
@@ -56,150 +79,210 @@ pub struct Object {
     name: Option<String>,
     mutable: bool,
     data: Data,
-    lifetime: Lifetime,
 }
 
-impl State {
+impl GlobalState {
     pub fn new() -> Self {
-        State {
-            function_list: Vec::new(),
-            type_list: Type::primitive_types(),
-            object_list: Vec::new(),
-            assembly: String::new(),
+        GlobalState {
+            function_list: RefCell::new(Vec::new()),
+            type_list: RefCell::new(Vec::new()),
+            assembly: RefCell::new(String::new()),
+            error: RefCell::new(Vec::new()),
+        }
+    }
+}
+
+impl CompilerState for GlobalState {
+    fn child_for_proc(self: Rc<Self>) -> SResult<Rc<dyn CompilerState>> {
+        let proc_state = ProcState {
+            parent: Rc::downgrade(&self) as Weak<dyn CompilerState>,
+            object_list: RefCell::new(Vec::new()),
+        };
+        Ok(Rc::new(proc_state))
+    }
+
+    fn add_function(self: Rc<Self>, function: Function) -> SResult<()> {
+        if self.clone().get_function(&function.name).is_none() {
+            self.function_list.borrow_mut().push(function);
+            Ok(())
+        } else {
+            Err(format!(
+                "function \"{}\" is defined multiple times",
+                &function.name
+            ))
         }
     }
 
-    pub fn add_object(&mut self, object: Rc<RefCell<Object>>) {
-        let mut object_borrow_mut = object.borrow_mut();
-        for i in &mut self.object_list {
-            let mut i_borrow_mut = i.borrow_mut();
-            i_borrow_mut.resolve(&mut object_borrow_mut);
-        }
-        std::mem::drop(object_borrow_mut);
-        self.object_list.push(object);
-    }
-
-    pub fn get_object_by_name(&self, name: &str, offset: Offset) -> Option<Rc<RefCell<Object>>> {
-        for i in &self.object_list {
-            let i_borrow = i.borrow();
-
-            let match_name = if let Some(ref i_name) = i_borrow.name {
-                i_name == name
-            } else {
-                false
-            };
-            let alive = i_borrow.lifetime.alive(offset);
-
-            if match_name && alive {
+    fn get_function(self: Rc<Self>, name: &str) -> Option<Function> {
+        for i in &*self.function_list.borrow() {
+            if &i.name == name {
                 return Some(i.clone());
             }
         }
         None
     }
 
-    pub fn get_type_by_name(&self, name: &str) -> Option<Rc<RefCell<Type>>> {
-        for i in &self.type_list {
-            let i_borrow = i.borrow();
-            if &i_borrow.name == name {
+    fn add_type(self: Rc<Self>, r#type: Type) -> SResult<()> {
+        if self.clone().get_type(&r#type.name).is_none() {
+            self.type_list.borrow_mut().push(r#type);
+            Ok(())
+        } else {
+            Err(format!(
+                "type \"{}\" is defined multiple times",
+                &r#type.name
+            ))
+        }
+    }
+
+    fn get_type(self: Rc<Self>, name: &str) -> Option<Type> {
+        for i in &*self.type_list.borrow() {
+            if &i.name == name {
                 return Some(i.clone());
             }
         }
         None
     }
+
+    fn clean_object(self: Rc<Self>) {
+        // do nothing
+    }
+
+    fn add_object(self: Rc<Self>, object: Object) -> SResult<()> {
+        Err("any object can't exist here".to_string())
+    }
+
+    fn get_object_by_name(self: Rc<Self>, name: &str) -> Option<Object> {
+        None
+    }
+
+    fn get_object_by_register(self: Rc<Self>, register: Register) -> Option<Object> {
+        None
+    }
+
+    fn drop_object_by_name(self: Rc<Self>, name: &str) {
+        // do nothing
+    }
+
+    fn drop_object_by_register(self: Rc<Self>, register: Register) {
+        // do nothing
+    }
+
+    fn add_asm(self: Rc<Self>, code: &str) {
+        *self.assembly.borrow_mut() += code;
+    }
+
+    fn add_error(self: Rc<Self>, offset: Offset, msg: String) {
+        self.error.borrow_mut().push((offset, msg))
+    }
 }
 
-impl SyntaxTree {
-    pub fn new(tree: Vec<Box<dyn SyntaxNode>>) -> Self {
-        SyntaxTree {
-            tree: tree,
-            state: State::new(),
-        }
+impl CompilerState for ProcState {
+    fn child_for_proc(self: Rc<Self>) -> SResult<Rc<dyn CompilerState>> {
+        let proc_state = ProcState {
+            parent: Rc::downgrade(&self) as Weak<dyn CompilerState>,
+            object_list: RefCell::new(Vec::new()),
+        };
+        Ok(Rc::new(proc_state))
     }
 
-    pub fn compile(mut self) -> SResult<String> {
-        println!("debug0: {:?}\n", self.state);
-        for i in &mut self.tree {
-            println!("debuga: {:?}\n", self.state);
-            i.look_ahead(&mut self.state)?;
-        }
-        println!("debug1: {:?}\n", self.state);
-        for i in &mut self.tree {
-            i.compile(&mut self.state)?;
-        }
-        println!("debug2: {:?}\n", self.state);
-        Ok(self.state.assembly)
+    fn add_function(self: Rc<Self>, function: Function) -> SResult<()> {
+        Err("functions cannot defined here".to_string())
     }
-}
-
-impl Lifetime {
-    /// Lifetime型のコンストラクタ
-    pub fn new(start: Offset, end: Option<Offset>) -> Self {
-        Lifetime {
-            start: start,
-            end: end,
-        }
+    fn get_function(self: Rc<Self>, name: &str) -> Option<Function> {
+        self.parent
+            .upgrade()
+            .expect("internal error")
+            .get_function(name)
     }
 
-    /// offsetのとき生存しているか判定する関数
-    pub fn alive(&self, offset: Offset) -> bool {
-        if let Some(self_end) = self.end {
-            self.start <= offset && offset < self_end
-        } else {
-            self.start <= offset
-        }
+    fn add_type(self: Rc<Self>, r#type: Type) -> SResult<()> {
+        Err("types cannot defined here".to_string())
+    }
+    fn get_type(self: Rc<Self>, name: &str) -> Option<Type> {
+        self.parent
+            .upgrade()
+            .expect("internal error")
+            .get_type(name)
     }
 
-    /// ライフタイムが存在しているか判定する関数
-    pub fn exist(&self) -> bool {
-        if let Some(self_end) = self.end {
-            self.start < self_end
-        } else {
-            true
-        }
+    fn clean_object(self: Rc<Self>) {
+        *self.object_list.borrow_mut() = Vec::new();
+        self.parent
+            .upgrade()
+            .expect("internal error")
+            .clean_object();
     }
-
-    /// ライフタイムが重複しているか判定する関数
-    pub fn doubling(&self, other: &Self) -> bool {
-        match (self.end, other.end) {
-            (Some(self_end), Some(other_end)) => other.start < self_end && self.start < other_end,
-            (Some(self_end), None) => other.start < self_end,
-            (None, Some(other_end)) => self.start < other_end,
-            (None, None) => true,
+    fn add_object(self: Rc<Self>, object: Object) -> SResult<()> {
+        if let Some(ref name) = object.name {
+            self.clone().drop_object_by_name(name);
         }
-    }
+        self.clone().drop_object_by_register(object.data.register);
 
-    /// ライフタイムの重複を解決する関数
-    pub fn resolve(&mut self, other: &mut Self) {
-        match (self.end, other.end) {
-            (Some(self_end), Some(other_end)) => {
-                if other.start < self_end && self.start < other_end {
-                    if self.start <= other.start {
-                        self.end = Some(other.start);
-                    }
-                    if other.start <= self.start {
-                        other.end = Some(self.start);
-                    }
-                }
-            }
-            (Some(self_end), None) => {
-                if other.start < self_end {
-                    other.end = Some(self.start);
-                }
-            }
-            (None, Some(other_end)) => {
-                if self.start < other_end {
-                    self.end = Some(other.start);
-                }
-            }
-            (None, None) => {
-                if self.start <= other.start {
-                    self.end = Some(other.start);
-                }
-                if other.start <= self.start {
-                    other.end = Some(self.start);
+        self.object_list.borrow_mut().push(object);
+
+        Ok(())
+    }
+    fn get_object_by_name(self: Rc<Self>, name: &str) -> Option<Object> {
+        for i in &*self.object_list.borrow() {
+            if let Some(ref i_name) = i.name {
+                if i_name == name {
+                    return Some(i.clone());
                 }
             }
         }
+        self.parent
+            .upgrade()
+            .expect("internal error")
+            .get_object_by_name(name)
+    }
+    fn get_object_by_register(self: Rc<Self>, register: Register) -> Option<Object> {
+        for i in &*self.object_list.borrow() {
+            if i.data.register == register {
+                return Some(i.clone());
+            }
+        }
+        self.parent
+            .upgrade()
+            .expect("internal error")
+            .get_object_by_register(register)
+    }
+    fn drop_object_by_name(self: Rc<Self>, name: &str) {
+        let mut object_list = self.object_list.borrow_mut();
+        for i in 0..object_list.len() {
+            if let Some(ref object_name) = object_list[i].name {
+                if object_name == name {
+                    object_list.remove(i);
+                    break;
+                }
+            }
+        }
+        self.parent
+            .upgrade()
+            .expect("internal error")
+            .drop_object_by_name(name);
+    }
+    fn drop_object_by_register(self: Rc<Self>, register: Register) {
+        let mut object_list = self.object_list.borrow_mut();
+        for i in 0..object_list.len() {
+            if object_list[i].data.register == register {
+                object_list.remove(i);
+            }
+        }
+        self.parent
+            .upgrade()
+            .expect("internal error")
+            .drop_object_by_register(register);
+    }
+
+    fn add_asm(self: Rc<Self>, code: &str) {
+        self.parent.upgrade().expect("internal error").add_asm(code);
+    }
+
+    fn add_error(self: Rc<Self>, offset: Offset, msg: String) {
+        self.parent
+            .upgrade()
+            .expect("internal error")
+            .add_error(offset, msg);
     }
 }
 
@@ -223,14 +306,7 @@ impl Data {
 impl Object {
     /// 存在が重複しているか判定する関数
     pub fn doubling(&self, other: &Self) -> bool {
-        self.data.doubling(&other.data) && self.lifetime.doubling(&other.lifetime)
-    }
-
-    /// 存在の重複を解決する関数
-    pub fn resolve(&mut self, other: &mut Self) {
-        if self.doubling(other) {
-            self.lifetime.resolve(&mut other.lifetime);
-        }
+        self.data.doubling(&other.data)
     }
 }
 
