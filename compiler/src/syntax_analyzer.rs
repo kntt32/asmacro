@@ -3,17 +3,18 @@ use std::{
     cell::Ref,
     cell::RefCell,
     cmp::min,
+    fmt::Debug,
     rc::{Rc, Weak},
     str::FromStr,
 };
-use util::{ErrorMessage, Offset, SResult};
+use util::{ErrorMessage, Offset, SResult, parser};
 
 pub mod syntax_node;
 
 /// 構文ツリーの要素のためのトレイト
-pub trait SyntaxNode {
-    fn look_ahead(&mut self, state: Rc<dyn CompilerState>);
-    fn data(&self, state: Rc<dyn CompilerState>) -> SResult<Option<Data>>;
+pub trait SyntaxNode: Debug {
+    fn look_ahead(&self, state: Rc<dyn CompilerState>);
+    fn data(&self, state: Rc<dyn CompilerState>) -> Option<Data>;
     fn compile(&self, state: Rc<dyn CompilerState>);
 }
 
@@ -218,8 +219,16 @@ impl CompilerState for ProcState {
         }
         self.clone().drop_object_by_register(object.data.register);
 
+        let Some(r#type) = self.clone().get_type(&object.data.r#type) else {
+            return Err(format!("type \"{}\" is undefined", object.data.r#type));
+        };
+        if r#type.avaiable_registers.contains(&object.data.register) {
+            return Err(format!(
+                "register \"{}\" is unavaiable for type \"{}\"",
+                object.data.register, &object.data.r#type
+            ));
+        }
         self.object_list.borrow_mut().push(object);
-
         Ok(())
     }
     fn get_object_by_name(self: Rc<Self>, name: &str) -> Option<Object> {
@@ -301,12 +310,69 @@ impl Data {
     pub fn register(&self) -> Register {
         self.register
     }
+
+    /// 文字列からパース
+    pub fn parse(src: &str, mut offset: Offset) -> Option<(Self, &str, Offset)> {
+        // $ident @ $ident
+        let r#type: String;
+        let register: Register;
+
+        let mut s = src;
+        let (left, right, o) = parser::parse_identifier(s, offset)?;
+        r#type = left.to_string();
+        s = right;
+        offset = o;
+
+        let (left, right, o) = parser::parse_identifier(s, offset)?;
+        let Ok(register) = left.parse() else {
+            return None;
+        };
+        s = right;
+        offset = o;
+
+        Some((
+            Data {
+                r#type: r#type,
+                register: register,
+            },
+            s,
+            offset,
+        ))
+    }
 }
 
 impl Object {
     /// 存在が重複しているか判定する関数
     pub fn doubling(&self, other: &Self) -> bool {
         self.data.doubling(&other.data)
+    }
+}
+
+impl Object {
+    pub fn parse(mut src: &str, mut offset: Offset) -> Option<(Self, &str, Offset)> {
+        // (mut) $ident : $ident @ $ident
+        let name: &str;
+        let data: Data;
+        let mutable = match parser::parse_keyword(src, "mut", offset) {
+            Some((_, s, o)) => {
+                src = s;
+                offset = o;
+                true
+            }
+            None => false
+        };
+        (name, src, offset) = parser::parse_identifier(src, offset)?;
+        (_, src, offset) = parser::parse_symbol(src, ":", offset)?;
+        (data, src, offset) = Data::parse(src, offset)?;
+        Some((
+            Object {
+                name: Some(name.to_string()),
+                data: data,
+                mutable: mutable,
+            },
+            src,
+            offset
+        ))
     }
 }
 
@@ -341,6 +407,6 @@ impl Type {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
     name: String,
-    arguments: Vec<Rc<RefCell<Object>>>,
-    data: Data,
+    arguments: Vec<Object>,
+    data: Option<Data>,
 }

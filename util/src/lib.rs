@@ -13,6 +13,19 @@ pub struct Offset {
     pub column: usize,
 }
 
+impl Offset {
+    pub fn seek(&mut self, s: &str) {
+        for c in s.chars() {
+            if c == '\n' {
+                self.row += 1;
+                self.column = 0;
+            } else {
+                self.column += 1;
+            }
+        }
+    }
+}
+
 impl PartialOrd for Offset {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(match self.row.cmp(&other.row) {
@@ -177,6 +190,353 @@ pub fn get_inner_expr(expr: &str, bracket: [char; 2]) -> Option<&str> {
         None
     } else {
         Some(split_expr.0.trim())
+    }
+}
+
+/// パーサーに役立つ関数をまとめたモジュール
+pub mod parser {
+    use super::Offset;
+
+    /// 識別子
+    pub fn parse_identifier(mut src: &str, mut offset: Offset) -> Option<(&str, &str, Offset)> {
+        (src, offset) = skip_whitespace(src, offset);
+
+        let mut count: usize = 0;
+        for c in src.chars() {
+            if count == 0 {
+                if c.is_ascii_alphabetic() {
+                    count += 1;
+                } else {
+                    return None;
+                }
+            } else {
+                if c.is_ascii_alphanumeric() {
+                    count += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        let (left, right) = src.split_at(count);
+        if right.starts_with(separator) {
+            offset.seek(left);
+            Some((left, right, offset))
+        } else {
+            None
+        }
+    }
+
+    /// キーワード
+    pub fn parse_keyword<'a>(
+        mut src: &'a str,
+        keyword: &str,
+        mut offset: Offset,
+    ) -> Option<(&'a str, &'a str, Offset)> {
+        (src, offset) = skip_whitespace(src, offset);
+
+        if src.starts_with(keyword) {
+            let (left, right) = src.split_at(keyword.len());
+
+            if right.starts_with(separator) {
+                offset.seek(left);
+                Some((left, right, offset))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// シンボル
+    pub fn parse_symbol<'a>(
+        mut src: &'a str,
+        symbol: &str,
+        mut offset: Offset,
+    ) -> Option<(&'a str, &'a str, Offset)> {
+        (src, offset) = skip_whitespace(src, offset);
+        if src.starts_with(symbol) {
+            let (left, right) = src.split_at(symbol.len());
+            offset.seek(left);
+            Some((left, right, offset))
+        } else {
+            None
+        }
+    }
+
+    /// 数値リテラル
+    pub fn parse_number_literal(mut src: &str, mut offset: Offset) -> Option<(&str, &str, Offset)> {
+        (src, offset) = skip_whitespace(src, offset);
+        if let Some(t) = parse_number_literal_bin(src, offset) {
+            Some(t)
+        } else if let Some(t) = parse_number_literal_dight(src, offset) {
+            Some(t)
+        } else if let Some(t) = parse_number_literal_hex(src, offset) {
+            Some(t)
+        } else {
+            None
+        }
+    }
+
+    fn parse_number_literal_bin(src: &str, mut offset: Offset) -> Option<(&str, &str, Offset)> {
+        if src.starts_with("0b") || src.starts_with("0B") {
+            let mut count: usize = 0;
+            for c in src[2..].chars() {
+                if c == '0' || c == '1' {
+                    break;
+                }
+                count += c.len_utf8();
+            }
+            if count != 0 {
+                let (left, right) = src.split_at(count + 2);
+                if right.starts_with(separator) {
+                    offset.seek(left);
+                    Some((left, right, offset))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn parse_number_literal_dight(src: &str, mut offset: Offset) -> Option<(&str, &str, Offset)> {
+        let mut count: usize = 0;
+        for c in src.chars() {
+            if !c.is_ascii_digit() {
+                break;
+            }
+            count += c.len_utf8();
+        }
+        if count != 0 {
+            let (left, right) = src.split_at(count);
+            if right.starts_with(separator) {
+                offset.seek(left);
+                Some((left, right, offset))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn parse_number_literal_hex(src: &str, mut offset: Offset) -> Option<(&str, &str, Offset)> {
+        if src.starts_with("0x") || src.starts_with("0X") {
+            let mut count: usize = 0;
+            for c in src[2..].chars() {
+                if !c.is_ascii_hexdigit() {
+                    break;
+                }
+                count += c.len_utf8();
+            }
+            if count != 0 {
+                let (left, right) = src.split_at(count + 2);
+                if right.starts_with(separator) {
+                    offset.seek(left);
+                    Some((left, right, offset))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// 文字列リテラル
+    pub fn parse_string_literal(mut src: &str, mut offset: Offset) -> Option<(&str, &str, Offset)> {
+        (src, offset) = skip_whitespace(src, offset);
+        if src.starts_with('"') {
+            let mut count: usize = 0;
+            let mut prefix_flag = false;
+            for c in src[1..].chars() {
+                if prefix_flag {
+                    if !(c == 'n' || c == 'r' || c == '0' || c == '\\' || c == '"') {
+                        return None;
+                    }
+                    prefix_flag = false;
+                } else {
+                    match c {
+                        '\\' => prefix_flag = true,
+                        '\"' => break,
+                        _ => (),
+                    }
+                }
+                count += c.len_utf8();
+            }
+            let (left, right) = src.split_at(count + 2);
+            if right.starts_with(separator) {
+                offset.seek(left);
+                Some((left, right, offset))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// 文字リテラル
+    pub fn parse_char_literal(mut src: &str, mut offset: Offset) -> Option<(&str, &str, Offset)> {
+        (src, offset) = skip_whitespace(src, offset);
+        let mut count: usize = 2;
+        let mut chars = src.chars();
+
+        if chars.next() != Some('\'') {
+            return None;
+        }
+
+        match chars.next()? {
+            '\\' => {
+                let c = chars.next()?;
+                if !(c == 'n' || c == 'r' || c == '0' || c == '\\' || c == '"') {
+                    return None;
+                }
+                count += 1 + c.len_utf8();
+            }
+            '\'' => return None,
+            c => count += c.len_utf8(),
+        }
+
+        if chars.next() != Some('\'') {
+            return None;
+        }
+
+        let (left, right) = src.split_at(count);
+        if right.starts_with(separator) {
+            offset.seek(left);
+            Some((left, right, offset))
+        } else {
+            None
+        }
+    }
+
+    // 空白を読み飛ばす
+    fn skip_whitespace(src: &str, mut offset: Offset) -> (&str, Offset) {
+        let count = src.len() - src.trim_start().len();
+        let (left, right) = src.split_at(count);
+        offset.seek(left);
+        (right, offset)
+    }
+
+    /// 波カッコ
+    pub fn parse_proc_block(mut src: &str, mut offset: Offset) -> Option<(&str, &str, Offset)> {
+        (src, offset) = skip_whitespace(src, offset);
+        let mut count: usize = 1;
+        let (_, mut s, mut offset) = parse_symbol(src, "{", offset)?;
+        loop {
+            if let Some((left, right, o)) = skip(src, offset) {
+                s = right;
+                offset = o;
+                count += left.len();
+            } else {
+                (_, _, offset) = parse_symbol(s, "}", offset)?;
+                let (left, right) = src.split_at(count + 1);
+                offset.seek(left);
+                break Some((left, right, offset));
+            }
+        }
+    }
+
+    /// カッコ
+    pub fn parse_expr_block(mut src: &str, mut offset: Offset) -> Option<(&str, &str, Offset)> {
+        (src, offset) = skip_whitespace(src, offset);
+        let mut count: usize = 1;
+        let (_, mut s, mut offset) = parse_symbol(src, "(", offset)?;
+        loop {
+            if let Some((left, right, o)) = skip(src, offset) {
+                s = right;
+                offset = o;
+                count += left.len();
+            } else {
+                (_, _, offset) = parse_symbol(s, ")", offset)?;
+                let (left, right) = src.split_at(count + 1);
+                offset.seek(left);
+                break Some((left, right, offset));
+            }
+        }
+    }
+
+    /// カギカッコ
+    pub fn parse_index_block(mut src: &str, mut offset: Offset) -> Option<(&str, &str, Offset)> {
+        (src, offset) = skip_whitespace(src, offset);
+        let mut count: usize = 1;
+        let (_, mut s, mut offset) = parse_symbol(src, "[", offset)?;
+        loop {
+            if let Some((left, right, o)) = skip(src, offset) {
+                s = right;
+                offset = o;
+                count += left.len();
+            } else {
+                (_, _, offset) = parse_symbol(s, "]", offset)?;
+                let (left, right) = src.split_at(count + 1);
+                offset.seek(left);
+                break Some((left, right, offset));
+            }
+        }
+    }
+
+    pub fn parse_generics_block(mut src: &str, mut offset: Offset) -> Option<(&str, &str, Offset)> {
+        (src, offset) = skip_whitespace(src, offset);
+        let mut count: usize = 1;
+        let (_, mut s, mut offset) = parse_symbol(src, "<", offset)?;
+        loop {
+            if let Some((left, right, o)) = skip(src, offset) {
+                s = right;
+                offset = o;
+                count += left.len();
+            } else {
+                (_, _, offset) = parse_symbol(s, ">", offset)?;
+                let (left, right) = src.split_at(count + 1);
+                offset.seek(left);
+                break Some((left, right, offset));
+            }
+        }
+    }
+
+    pub fn skip(src: &str, offset: Offset) -> Option<(&str, &str, Offset)> {
+        const PARSERS: &[fn(&str, Offset) -> Option<(&str, &str, Offset)>] = &[
+            parse_identifier,
+            parse_number_literal,
+            parse_string_literal,
+            parse_char_literal,
+            parse_proc_block,
+            parse_expr_block,
+            parse_index_block,
+            parse_generics_block,
+        ];
+        for p in PARSERS {
+            if let Some(t) = p(src, offset) {
+                return Some(t);
+            }
+        }
+        // parse_keyword
+        const KEYWORDS: &[&str] = &["fn", "let", "mut"];
+        for k in KEYWORDS {
+            if let Some(t) = parse_keyword(src, k, offset) {
+                return Some(t);
+            }
+        }
+
+        // parse_symbol
+        const SYMBOLS: &[&str] = &["@", ":", "=", ";"];
+        for s in SYMBOLS {
+            if let Some(t) = parse_symbol(src, s, offset) {
+                return Some(t);
+            }
+        }
+        None
+    }
+
+    fn separator(c: char) -> bool {
+        c.is_ascii_whitespace() || c.is_ascii_punctuation()
     }
 }
 

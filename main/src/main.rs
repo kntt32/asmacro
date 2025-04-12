@@ -6,30 +6,17 @@ use asm::{
     },
     linker::object::Object,
 };
-use compiler::parser::{Parser as CParser, Token};
+use compiler::syntax_analyzer::syntax_node;
 use std::{env::args, fs::File, io::Write, path::Path, process::Command};
 use util::Offset;
 
 fn main() {
     println!("hello, world!");
-}
-
-#[allow(unused)]
-fn compiler_demo(mut parser: CParser) {
-    for t in parser {
-        match t {
-            Token::Block {
-                r#type: _,
-                parser: p,
-                offset: _,
-            } => {
-                println!("{:?}\n", t);
-                compiler_demo(p);
-                println!("\n");
-            }
-            _ => println!("{:?}", t),
-        }
-    }
+    let mut s = "let a = 123456\n\n\n";
+    let mut offset = Offset { row: 1, column: 1 };
+    let node1;
+    (node1, s, offset) = syntax_node::parse(s, offset).unwrap();
+    println!("{:?}", node1);
 }
 
 #[allow(unused)]
