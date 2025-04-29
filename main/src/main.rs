@@ -6,17 +6,24 @@ use asm::{
     },
     linker::object::Object,
 };
-use compiler::syntax_analyzer::syntax_node;
-use std::{env::args, fs::File, io::Write, path::Path, process::Command};
-use util::Offset;
+use compiler::syntax_analyzer::{syntax_node, GlobalState};
+use std::{env::args, fs::File, io::Write, path::Path, process::Command, rc::Rc};
+use util::{parser::Parser as UParser, Offset};
 
 fn main() {
     println!("hello, world!");
-    let mut s = "let a = 123456\n\n\n";
-    let mut offset = Offset { row: 1, column: 1 };
-    let node1;
-    (node1, s, offset) = syntax_node::parse(s, offset).unwrap();
-    println!("{:?}", node1);
+    let mut s = "
+    fn main() {
+        let a = 123;
+    }
+    ";
+    let mut parser = UParser::new(s);
+    let syntax_node = syntax_node::parse(&mut parser).unwrap();
+    println!("{:?}", syntax_node);
+    let state = Rc::new(GlobalState::new());
+    syntax_node.look_ahead(state.clone());
+    syntax_node.compile(state.clone());
+    println!("{:?}", state);
 }
 
 #[allow(unused)]
