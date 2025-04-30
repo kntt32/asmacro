@@ -1,7 +1,8 @@
-use crate::types::{Type, Data, Object, Function};
-use std::{rc::Rc, fmt::Debug};
-use util::{SResult, Offset, parser::Parser};
+use crate::types::{Data, Function, Object, Type};
 use asm::assembler::register::Register;
+use std::{fmt::Debug, rc::Rc};
+use syntax_nodes::parse;
+use util::{Offset, SResult, parser::Parser};
 
 mod syntax_nodes;
 
@@ -18,31 +19,27 @@ impl SyntaxTree {
         let mut tree = Vec::new();
         let mut state = Rc::new(compiler_states::GlobalState::new());
 
-        let parsers = &[
-            syntax_nodes::VariableDeclaration::parse,
-            syntax_nodes::FunctionDeclaration::parse,
-            syntax_nodes::CallingFunction::parse,
-            syntax_nodes::NumberLiteral::parse,
-            syntax_nodes::ReferVariableExpr::parse,
-        ];
         let mut parser = Parser::new(src);
-        'a: loop {
-            for p in parsers {
-                if let Some(node) = p(&mut parser) {
-                    tree.push(node);
-                    continue 'a;
+        loop {
+            if let Some(node) = parse(&mut parser) {
+                tree.push(node);
+            } else {
+                if !parser.is_empty() {
+                    state
+                        .clone()
+                        .add_error(parser.offset(), format!("unknown token found"));
                 }
+                break;
             }
-            if !parser.is_empty() {
-                state.clone().add_error(parser.offset(), format!("unknown token found"));
-            }
-            break;
         }
 
-        SyntaxTree { tree: tree, state: state }
+        SyntaxTree {
+            tree: tree,
+            state: state,
+        }
     }
 
-    pub fn compile(&mut self) -> Result<String, Vec<(Offset, String)>> {
+    pub fn compile(self) -> Result<String, Vec<(Offset, String)>> {
         for node in &self.tree {
             node.look_ahead(self.state.clone());
         }
@@ -91,4 +88,3 @@ trait CompilerState {
     fn add_error(self: Rc<Self>, offset: Offset, msg: String);
     fn status(self: Rc<Self>) -> Result<String, Vec<(Offset, String)>>;
 }
-

@@ -32,7 +32,6 @@ pub struct Function {
     pub data: Option<Data>,
 }
 
-
 impl Data {
     /// データの存在が重複しているか判定する関数
     pub fn doubling(&self, other: &Self) -> bool {
@@ -125,4 +124,3 @@ impl Type {
         &self.name
     }
 }
-

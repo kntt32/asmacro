@@ -1,8 +1,8 @@
-use super::{SyntaxNode, CompilerState};
-use crate::types::{Data, Object, Type, Function};
-use util::{parser, parser::Parser, Offset};
-use std::rc::Rc;
+use super::{CompilerState, SyntaxNode};
+use crate::types::{Data, Function, Object, Type};
 use asm::assembler::register::Register;
+use std::rc::Rc;
+use util::{Offset, parser, parser::Parser};
 
 pub fn parse(parser: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>> {
     const PARSERS: &[fn(p: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>>] = &[

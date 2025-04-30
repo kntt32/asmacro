@@ -1,8 +1,11 @@
 use super::{CompilerState, Object, Type};
-use std::{cell::RefCell, rc::{Weak, Rc}};
 use crate::types::Function;
-use util::{SResult, Offset};
 use asm::assembler::register::Register;
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
+use util::{Offset, SResult};
 
 /// グローバルなCompilerState
 #[derive(Debug)]
@@ -133,7 +136,7 @@ impl CompilerState for GlobalState {
         let error = self.error.borrow();
         if error.len() == 0 {
             Ok(self.assembly.borrow().clone())
-        }else {
+        } else {
             Err(error.clone())
         }
     }
@@ -294,7 +297,3 @@ impl CompilerState for ProcState {
         self.parent.upgrade().expect("internal error").status()
     }
 }
-
-
-
-
