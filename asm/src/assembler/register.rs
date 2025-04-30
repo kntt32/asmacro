@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use std::{
+    fmt::{Display, Error, Formatter},
+    str::FromStr,
+};
 
 /// Enum for Register
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -78,10 +81,123 @@ pub enum Register {
     R15l,
 }
 
+impl Display for Register {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 /// Type of register code
 pub type RegisterCode = (Option<bool>, u8);
 
 impl Register {
+    /// &'static strに変換
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Al => "al",
+            Self::Cl => "cl",
+            Self::Dl => "dl",
+            Self::Bl => "bl",
+            Self::Ah => "ah",
+            Self::Ch => "ch",
+            Self::Dh => "dh",
+            Self::Bh => "bh",
+            Self::Spl => "spl",
+            Self::Bpl => "bpl",
+            Self::Sil => "sil",
+            Self::Dil => "dil",
+            Self::R8l => "r8l",
+            Self::R9l => "r9l",
+            Self::R10l => "r10l",
+            Self::R11l => "r11l",
+            Self::R12l => "r12l",
+            Self::R13l => "r13l",
+            Self::R14l => "r14l",
+            Self::R15l => "r15l",
+
+            Self::Ax => "ax",
+            Self::Cx => "cx",
+            Self::Dx => "dx",
+            Self::Bx => "bx",
+            Self::Sp => "sp",
+            Self::Bp => "bp",
+            Self::Si => "si",
+            Self::Di => "di",
+            Self::R8w => "r8w",
+            Self::R9w => "r9w",
+            Self::R10w => "r10w",
+            Self::R11w => "r11w",
+            Self::R12w => "r12w",
+            Self::R13w => "r13w",
+            Self::R14w => "r14w",
+            Self::R15w => "r15w",
+
+            Self::Eax => "eax",
+            Self::Ecx => "ecx",
+            Self::Edx => "edx",
+            Self::Ebx => "ebx",
+            Self::Esp => "esp",
+            Self::Ebp => "ebp",
+            Self::Esi => "esi",
+            Self::Edi => "edi",
+            Self::R8d => "r8d",
+            Self::R9d => "r9d",
+            Self::R10d => "r10d",
+            Self::R11d => "r11d",
+            Self::R12d => "r12d",
+            Self::R13d => "r13d",
+            Self::R14d => "r14d",
+            Self::R15d => "r15d",
+
+            Self::Rax => "rax",
+            Self::Rcx => "rcx",
+            Self::Rdx => "rdx",
+            Self::Rbx => "rbx",
+            Self::Rsp => "rsp",
+            Self::Rbp => "rbp",
+            Self::Rsi => "rsi",
+            Self::Rdi => "rdi",
+            Self::R8 => "r8",
+            Self::R9 => "r9",
+            Self::R10 => "r10",
+            Self::R11 => "r11",
+            Self::R12 => "r12",
+            Self::R13 => "r13",
+            Self::R14 => "r14",
+            Self::R15 => "r15",
+
+            Self::Rip => "rip",
+        }
+    }
+
+    /// レジスタが重なっているか判定する関数
+    pub fn doubling(self, other: Self) -> bool {
+        self.parent() == other.parent()
+    }
+
+    /// 内包する64bitレジスタを取得する関数
+    pub fn parent(self) -> Self {
+        match self {
+            Self::Rip => Self::Rip,
+            Self::Rax | Self::Eax | Self::Ax | Self::Al | Self::Ah => Self::Rax,
+            Self::Rcx | Self::Ecx | Self::Cx | Self::Cl | Self::Ch => Self::Rcx,
+            Self::Rdx | Self::Edx | Self::Dx | Self::Dl | Self::Dh => Self::Rdx,
+            Self::Rbx | Self::Ebx | Self::Bx | Self::Bl | Self::Bh => Self::Rbx,
+            Self::Rsp | Self::Esp | Self::Sp | Self::Spl => Self::Rsp,
+            Self::Rbp | Self::Ebp | Self::Bp | Self::Bpl => Self::Rbp,
+            Self::Rsi | Self::Esi | Self::Si | Self::Sil => Self::Rsi,
+            Self::Rdi | Self::Edi | Self::Di | Self::Dil => Self::Rdi,
+            Self::R8 | Self::R8d | Self::R8w | Self::R8l => Self::R8,
+            Self::R9 | Self::R9d | Self::R9w | Self::R9l => Self::R9,
+            Self::R10 | Self::R10d | Self::R10w | Self::R10l => Self::R10,
+            Self::R11 | Self::R11d | Self::R11w | Self::R11l => Self::R11,
+            Self::R12 | Self::R12d | Self::R12w | Self::R12l => Self::R12,
+            Self::R13 | Self::R13d | Self::R13w | Self::R13l => Self::R13,
+            Self::R14 | Self::R14d | Self::R14w | Self::R14l => Self::R14,
+            Self::R15 | Self::R15d | Self::R15w | Self::R15l => Self::R15,
+        }
+    }
+
     /// If this register is 64bit
     pub fn is_64bit(self) -> bool {
         const RAX_USIZE: usize = Register::Rax as usize;

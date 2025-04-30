@@ -2,57 +2,23 @@ use asm::{
     assembler::{
         line::{instruction::Instruction, pseudo::Pseudo},
         parser::Parser,
+        register::Register,
     },
     linker::object::Object,
 };
-use compiler::{
-    parser::{Parser as CParser, Token},
-    syntax_analyzer::SyntaxTree,
-};
-use std::{env::args, fs::File, io::Write, path::Path, process::Command};
+use compiler::syntax_tree::SyntaxTree;
+use std::{env::args, fs::File, io::Write, path::Path, process::Command, rc::Rc};
+use util::{parser::Parser as UParser, Offset};
 
 fn main() {
-    let mut parser = CParser::new("let v:u64@rax = 5;");
-    let syntax_tree = SyntaxTree::new(
-        "
-fn main () {
-    let mut v: u64 @ rax = 5;
-    v = 3;
-    main();
-}
-",
-    );
-    println!("{:?}", syntax_tree);
-    println!("{:?}", syntax_tree.check_global());
-
-    /*
-        let p = CParser::new(
-            "
-        fn main() {
-        5
-        }
-        ",
-        );
-        compiler_demo(p);
-    */
-}
-
-#[allow(unused)]
-fn compiler_demo(mut parser: CParser) {
-    for t in parser {
-        match t {
-            Token::Block {
-                r#type: _,
-                parser: p,
-                offset: _,
-            } => {
-                println!("{:?}\n", t);
-                compiler_demo(p);
-                println!("\n");
-            }
-            _ => println!("{:?}", t),
-        }
+    println!("hello, world!");
+    let mut s = "
+    fn main() {
+        let a = 123;
     }
+    ";
+    let mut syntax_tree = SyntaxTree::new(s);
+    println!("{:?}", syntax_tree.compile());
 }
 
 #[allow(unused)]

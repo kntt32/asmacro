@@ -1,3 +1,4 @@
-pub mod parser;
+/// 文法構造を
+pub mod syntax_tree;
 
-pub mod syntax_analyzer;
+pub mod types;
