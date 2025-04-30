@@ -1,59 +1,8 @@
+use super::{CompilerState, Object, Type};
+use std::{cell::RefCell, rc::{Weak, Rc}};
+use crate::types::Function;
+use util::{SResult, Offset};
 use asm::assembler::register::Register;
-use std::{
-    cell::Ref,
-    cell::RefCell,
-    cmp::min,
-    fmt::Debug,
-    rc::{Rc, Weak},
-    str::FromStr,
-};
-use util::{ErrorMessage, Offset, SResult, parser, parser::Parser};
-
-pub mod syntax_node;
-
-/// 構文ツリーの要素のためのトレイト
-pub trait SyntaxNode: Debug {
-    fn look_ahead(&self, state: Rc<dyn CompilerState>);
-    fn data(&self, state: Rc<dyn CompilerState>) -> Option<Data>;
-    fn compile(&self, state: Rc<dyn CompilerState>);
-}
-
-/// コンパイル中に情報を記録するためのデータ型のトレイト
-pub trait CompilerState {
-    fn child_for_proc(self: Rc<Self>) -> SResult<Rc<dyn CompilerState>>;
-
-    fn add_function(self: Rc<Self>, function: Function) -> SResult<()>;
-    fn get_function(self: Rc<Self>, name: &str) -> Option<Function>;
-
-    fn add_type(self: Rc<Self>, r#type: Type) -> SResult<()>;
-    fn get_type(self: Rc<Self>, name: &str) -> Option<Type>;
-
-    fn clean_object(self: Rc<Self>);
-    fn add_object(self: Rc<Self>, object: Object) -> SResult<()>;
-    fn get_object_by_name(self: Rc<Self>, name: &str) -> Option<Object>;
-    fn get_object_by_register(self: Rc<Self>, register: Register) -> Option<Object>;
-    fn map_object_by_name(
-        self: Rc<Self>,
-        name: &str,
-        p: &dyn Fn(Option<&mut Object>) -> SResult<()>,
-    ) -> SResult<()>;
-    fn map_object_by_register(
-        self: Rc<Self>,
-        register: Register,
-        p: &dyn Fn(Option<&mut Object>) -> SResult<()>,
-    ) -> SResult<()>;
-    fn drop_object_by_name(self: Rc<Self>, name: &str);
-    fn drop_object_by_register(self: Rc<Self>, register: Register);
-
-    fn add_asm(self: Rc<Self>, code: &str);
-    fn add_error(self: Rc<Self>, offset: Offset, msg: String);
-}
-
-/// 構文ツリーを表現する構造体
-pub struct SyntaxTree {
-    tree: Vec<Box<dyn SyntaxNode>>,
-    state: Rc<dyn CompilerState>,
-}
 
 /// グローバルなCompilerState
 #[derive(Debug)]
@@ -68,37 +17,6 @@ pub struct GlobalState {
 pub struct ProcState {
     parent: Weak<dyn CompilerState>,
     object_list: RefCell<Vec<Object>>,
-}
-
-/// データ型を表す構造体
-#[derive(Clone, Debug, PartialEq)]
-pub struct Type {
-    name: String,
-    avaiable_registers: Vec<Register>,
-    copy: bool,
-}
-
-/// データを表す構造体
-#[derive(Clone, Debug, PartialEq)]
-pub struct Data {
-    r#type: String,
-    register: Register,
-}
-
-/// オブジェクトを表す構造体
-#[derive(Clone, Debug, PartialEq)]
-pub struct Object {
-    name: Option<String>,
-    mutable: bool,
-    data: Data,
-}
-
-/// 関数を表す構造体
-#[derive(Clone, Debug, PartialEq)]
-pub struct Function {
-    name: String,
-    arguments: Vec<Object>,
-    data: Option<Data>,
 }
 
 impl GlobalState {
@@ -209,6 +127,15 @@ impl CompilerState for GlobalState {
 
     fn add_error(self: Rc<Self>, offset: Offset, msg: String) {
         self.error.borrow_mut().push((offset, msg))
+    }
+
+    fn status(self: Rc<Self>) -> Result<String, Vec<(Offset, String)>> {
+        let error = self.error.borrow();
+        if error.len() == 0 {
+            Ok(self.assembly.borrow().clone())
+        }else {
+            Err(error.clone())
+        }
     }
 }
 
@@ -362,97 +289,12 @@ impl CompilerState for ProcState {
             .expect("internal error")
             .add_error(offset, msg);
     }
-}
 
-impl Data {
-    /// データの存在が重複しているか判定する関数
-    pub fn doubling(&self, other: &Self) -> bool {
-        self.register.parent() == other.register.parent()
-    }
-
-    /// データ型を取得
-    pub fn r#type(&self) -> &str {
-        &self.r#type
-    }
-
-    /// レジスタを取得
-    pub fn register(&self) -> Register {
-        self.register
-    }
-
-    /// パース
-    pub fn parse(p: &mut Parser<'_>) -> Option<Self> {
-        let mut p_copy = *p;
-        let a = Self::parse_(&mut p_copy)?;
-        *p = p_copy;
-        Some(a)
-    }
-
-    fn parse_(p: &mut Parser<'_>) -> Option<Self> {
-        // $type @ $register
-        let r#type = p.parse_identifier()?.1;
-        p.parse_symbol(":")?;
-        let register_string = p.parse_identifier()?.1;
-        let Ok(register) = register_string.parse() else {
-            return None;
-        };
-        Some(Data {
-            r#type: r#type.to_string(),
-            register: register,
-        })
+    fn status(self: Rc<Self>) -> Result<String, Vec<(Offset, String)>> {
+        self.parent.upgrade().expect("internal error").status()
     }
 }
 
-impl Object {
-    /// 存在が重複しているか判定する関数
-    pub fn doubling(&self, other: &Self) -> bool {
-        self.data.doubling(&other.data)
-    }
 
-    /// パース
-    pub fn parse(p: &mut Parser<'_>) -> Option<Self> {
-        let mut p_copy = *p;
-        let a = Self::parse_(&mut p_copy)?;
-        *p = p_copy;
-        Some(a)
-    }
 
-    fn parse_(p: &mut Parser<'_>) -> Option<Self> {
-        let mutable = p.parse_keyword("mut").is_some();
-        let name = p.parse_identifier()?.1;
-        p.parse_keyword(":")?;
-        let data = Data::parse(p)?;
-        Some(Object {
-            name: Some(name.to_string()),
-            mutable: mutable,
-            data: data,
-        })
-    }
-}
 
-impl Type {
-    /// プリミティブなデータ型のリストを返す
-    pub fn primitive_types() -> Vec<Self> {
-        let u32 = Type {
-            name: "u32".to_string(),
-            avaiable_registers: vec![Register::Eax, Register::Ecx, Register::Edx, Register::Ebx],
-            copy: true,
-        };
-        let i32 = Type {
-            name: "i32".to_string(),
-            avaiable_registers: vec![Register::Eax, Register::Ecx, Register::Edx, Register::Ebx],
-            copy: true,
-        };
-        vec![u32, i32]
-    }
-
-    /// 使用可能なレジスタを取得
-    pub fn avaiable_registers(&self) -> &[Register] {
-        &self.avaiable_registers
-    }
-
-    /// 名前を取得
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-}

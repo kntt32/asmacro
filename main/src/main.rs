@@ -6,7 +6,7 @@ use asm::{
     },
     linker::object::Object,
 };
-use compiler::syntax_analyzer::{syntax_node, GlobalState};
+use compiler::syntax_tree::SyntaxTree;
 use std::{env::args, fs::File, io::Write, path::Path, process::Command, rc::Rc};
 use util::{parser::Parser as UParser, Offset};
 
@@ -17,13 +17,8 @@ fn main() {
         let a = 123;
     }
     ";
-    let mut parser = UParser::new(s);
-    let syntax_node = syntax_node::parse(&mut parser).unwrap();
-    println!("{:?}", syntax_node);
-    let state = Rc::new(GlobalState::new());
-    syntax_node.look_ahead(state.clone());
-    syntax_node.compile(state.clone());
-    println!("{:?}", state);
+    let mut syntax_tree = SyntaxTree::new(s);
+    println!("{:?}", syntax_tree.compile());
 }
 
 #[allow(unused)]
