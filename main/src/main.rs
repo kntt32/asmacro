@@ -10,11 +10,16 @@ use compiler::syntax_tree::SyntaxTree;
 use std::{env::args, fs::File, io::Write, path::Path, process::Command, rc::Rc};
 use util::{parser::Parser as UParser, Offset};
 
+
+
 fn main() {
     println!("hello, world!");
+
     let mut s = "
     fn main() {
-        let a = 123;
+        let mut a: i32 @ eax = 123;
+        let b = (a) @ edx;
+        a = 5;
     }
     ";
     let mut syntax_tree = SyntaxTree::new(s);

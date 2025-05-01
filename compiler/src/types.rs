@@ -59,7 +59,7 @@ impl Data {
     fn parse_(p: &mut Parser<'_>) -> Option<Self> {
         // $type @ $register
         let r#type = p.parse_identifier()?.1;
-        p.parse_symbol(":")?;
+        p.parse_symbol("@")?;
         let register_string = p.parse_identifier()?.1;
         let Ok(register) = register_string.parse() else {
             return None;

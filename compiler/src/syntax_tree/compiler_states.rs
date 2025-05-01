@@ -187,7 +187,7 @@ impl CompilerState for ProcState {
         let Some(r#type) = self.clone().get_type(&object.data.r#type) else {
             return Err(format!("type \"{}\" is undefined", object.data.r#type));
         };
-        if r#type.avaiable_registers.contains(&object.data.register) {
+        if !r#type.avaiable_registers.contains(&object.data.register) {
             return Err(format!(
                 "register \"{}\" is unavaiable for type \"{}\"",
                 object.data.register, &object.data.r#type
@@ -271,11 +271,15 @@ impl CompilerState for ProcState {
     }
     fn drop_object_by_register(self: Rc<Self>, register: Register) {
         let mut object_list = self.object_list.borrow_mut();
-        for i in 0..object_list.len() {
+        let mut i = 0;
+        while i < object_list.len() {
             if object_list[i].data.register == register {
                 object_list.remove(i);
+            }else {
+                i += 1;
             }
         }
+        
         self.parent
             .upgrade()
             .expect("internal error")
