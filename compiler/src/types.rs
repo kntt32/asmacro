@@ -58,9 +58,9 @@ impl Data {
 
     fn parse_(p: &mut Parser<'_>) -> Option<Self> {
         // $type @ $register
-        let r#type = p.parse_identifier()?.1;
+        let r#type = p.parse_identifier()?;
         p.parse_symbol("@")?;
-        let register_string = p.parse_identifier()?.1;
+        let register_string = p.parse_identifier()?;
         let Ok(register) = register_string.parse() else {
             return None;
         };
@@ -87,7 +87,7 @@ impl Object {
 
     fn parse_(p: &mut Parser<'_>) -> Option<Self> {
         let mutable = p.parse_keyword("mut").is_some();
-        let name = p.parse_identifier()?.1;
+        let name = p.parse_identifier()?;
         p.parse_keyword(":")?;
         let data = Data::parse(p)?;
         Some(Object {

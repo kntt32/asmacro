@@ -100,20 +100,12 @@ impl CompilerState for GlobalState {
         None
     }
 
-    fn map_object_by_name(
-        self: Rc<Self>,
-        name: &str,
-        p: &dyn Fn(Option<&mut Object>) -> SResult<()>,
-    ) -> SResult<()> {
-        p(None)
+    fn copy_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()> {
+        Err("object can't be copied here".to_string())
     }
 
-    fn map_object_by_register(
-        self: Rc<Self>,
-        register: Register,
-        p: &dyn Fn(Option<&mut Object>) -> SResult<()>,
-    ) -> SResult<()> {
-        p(None)
+    fn move_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()> {
+        Err("object can't be moved here".to_string())
     }
 
     fn drop_object_by_name(self: Rc<Self>, name: &str) {
@@ -220,39 +212,44 @@ impl CompilerState for ProcState {
             .expect("internal error")
             .get_object_by_register(register)
     }
+    fn copy_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()> {
+        let Some(r#type) = self.clone().get_type(&to.data.r#type) else {
+            return Err(format!("type \"{}\" is undefined", &to.data.r#type));
+        };
+        if !r#type.copy {
+            return Err("non-copyable data cannot be copied".to_string());
+        }
 
-    fn map_object_by_name(
-        self: Rc<Self>,
-        name: &str,
-        p: &dyn Fn(Option<&mut Object>) -> SResult<()>,
-    ) -> SResult<()> {
-        let mut object_mut: Option<&mut Object> = None;
-        for i in &mut *self.object_list.borrow_mut() {
-            if let Some(ref i_name) = i.name {
-                if i_name == name {
-                    return p(Some(i));
+        let Some(from_object) = self.clone().get_object_by_register(from) else {
+            return Err("object doesn't exist".to_string());
+        };
+
+        if &from_object.data.r#type != &to.data.r#type {
+            return Err("mismatching data type".to_string());
+        }
+
+        if from_object.data.register == to.data.register {
+            let mut object_list = self.object_list.borrow_mut();
+            for i in &mut *object_list {
+                if i.data.register == to.data.register {
+                    *i = to;
+                    return Ok(());
                 }
             }
+            self.parent
+                .upgrade()
+                .expect("failed to upgrade parent compiler-state")
+                .copy_object(from, to)
+        } else {
+            let to_data_register = to.data.register;
+            self.clone().add_object(to)?;
+            self.clone()
+                .add_asm(&format!("mov {} {}", to_data_register, from));
+            Ok(())
         }
-        self.parent
-            .upgrade()
-            .expect("internal erorr")
-            .map_object_by_name(name, p)
     }
-    fn map_object_by_register(
-        self: Rc<Self>,
-        register: Register,
-        p: &dyn Fn(Option<&mut Object>) -> SResult<()>,
-    ) -> SResult<()> {
-        for i in &mut *self.object_list.borrow_mut() {
-            if i.data.register == register {
-                return p(Some(i));
-            }
-        }
-        self.parent
-            .upgrade()
-            .expect("internal error")
-            .map_object_by_register(register, p)
+    fn move_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()> {
+        todo!()
     }
     fn drop_object_by_name(self: Rc<Self>, name: &str) {
         let mut object_list = self.object_list.borrow_mut();
@@ -275,11 +272,11 @@ impl CompilerState for ProcState {
         while i < object_list.len() {
             if object_list[i].data.register == register {
                 object_list.remove(i);
-            }else {
+            } else {
                 i += 1;
             }
         }
-        
+
         self.parent
             .upgrade()
             .expect("internal error")

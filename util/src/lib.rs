@@ -211,10 +211,10 @@ pub mod parser {
             }
         }
 
-        pub fn build(s: (Offset, &'a str)) -> Self {
+        pub fn build(offset: Offset, src: &'a str) -> Self {
             Parser {
-                src: s.1,
-                offset: s.0,
+                src: src,
+                offset: offset,
             }
         }
 
@@ -222,18 +222,19 @@ pub mod parser {
             self.src.trim().is_empty()
         }
 
-        pub fn offset(&self) -> Offset {
+        pub fn offset(mut self) -> Offset {
+            self.skip_whitespace();
             self.offset
         }
 
-        pub fn parse_identifier(&mut self) -> Option<(Offset, &'a str)> {
+        pub fn parse_identifier(&mut self) -> Option<&'a str> {
             let mut self_copy = *self;
             let a = self_copy.parse_identifier_()?;
             *self = self_copy;
             Some(a)
         }
 
-        fn parse_identifier_(&mut self) -> Option<(Offset, &'a str)> {
+        fn parse_identifier_(&mut self) -> Option<&'a str> {
             self.skip_whitespace();
 
             let mut count: usize = 0;
@@ -246,12 +247,11 @@ pub mod parser {
 
             if count != 0 {
                 let ident: &str;
-                let ident_offset = self.offset;
                 (ident, self.src) = self.src.split_at(count);
                 self.offset.seek(ident);
 
                 if self.exist_separator() {
-                    Some((ident_offset, ident))
+                    Some(ident)
                 } else {
                     None
                 }
@@ -260,78 +260,82 @@ pub mod parser {
             }
         }
 
-        pub fn parse_keyword(&mut self, keyword: &str) -> Option<(Offset, &'a str)> {
+        pub fn parse_keyword(&mut self, keyword: &str) -> Option<&'a str> {
             let mut self_copy = *self;
             let a = self_copy.parse_keyword_(keyword)?;
             *self = self_copy;
             Some(a)
         }
 
-        fn parse_keyword_(&mut self, keyword: &str) -> Option<(Offset, &'a str)> {
-            let (o, k) = self.parse_identifier_()?;
-            if k == keyword {
-                Some((o, k))
+        fn parse_keyword_(&mut self, keyword: &str) -> Option<&'a str> {
+            let ident = self.parse_identifier_()?;
+            if ident == keyword {
+                Some(ident)
             } else {
                 None
             }
         }
 
-        pub fn parse_symbol(&mut self, symbol: &str) -> Option<(Offset, &'a str)> {
+        pub fn parse_symbol(&mut self, symbol: &str) -> Option<&'a str> {
             let mut self_copy = *self;
             let a = self_copy.parse_symbol_(symbol)?;
             *self = self_copy;
             Some(a)
         }
 
-        fn parse_symbol_(&mut self, symbol: &str) -> Option<(Offset, &'a str)> {
+        fn parse_symbol_(&mut self, symbol: &str) -> Option<&'a str> {
             self.skip_whitespace();
             if self.src.starts_with(symbol) {
-                let symbol_offset = self.offset;
                 let s: &str;
                 (s, self.src) = self.src.split_at(symbol.len());
                 self.offset.seek(s);
-                Some((symbol_offset, s))
+                Some(s)
             } else {
                 None
             }
         }
 
-        pub fn parse_number_literal(&mut self) -> Option<(Offset, &'a str)> {
+        pub fn parse_number_literal(&mut self) -> Option<&'a str> {
             let mut self_copy = *self;
             let a = self_copy.parse_number_literal_()?;
             *self = self_copy;
             Some(a)
         }
 
-        fn parse_number_literal_(&mut self) -> Option<(Offset, &'a str)> {
+        fn parse_number_literal_(&mut self) -> Option<&'a str> {
             self.parse_number_literal_bin_()
                 .or(self.parse_number_literal_digit_())
                 .or(self.parse_number_literal_hex_())
         }
 
-        fn parse_number_literal_bin_(&mut self) -> Option<(Offset, &'a str)> {
+        fn parse_number_literal_bin_(&mut self) -> Option<&'a str> {
             self.skip_whitespace();
-            let value_offset = self.offset;
-            if !(self.src.starts_with("0b") || self.src.starts_with("0B")) {
+            let mut chars = self.src.chars();
+            let mut count: usize = 0;
+
+            if chars.next() != Some('0') {
                 return None;
             }
-            self.src = &self.src[2..];
-            self.offset.column += 2;
+            count += 1;
+            let b = chars.next()?;
+            if !(b == 'b' || b == 'B') {
+                return None;
+            }
+            count += 1;
 
-            let mut count: usize = 0;
-            for c in self.src.chars() {
+            for c in chars {
                 if !(c == '0' || c == '1') {
                     break;
                 }
                 count += c.len_utf8();
             }
 
-            if count != 0 {
+            if count != 2 {
                 let value: &str;
                 (value, self.src) = self.src.split_at(count);
                 if self.exist_separator() {
                     self.offset.seek(value);
-                    Some((value_offset, value))
+                    Some(value)
                 } else {
                     None
                 }
@@ -340,9 +344,8 @@ pub mod parser {
             }
         }
 
-        fn parse_number_literal_digit_(&mut self) -> Option<(Offset, &'a str)> {
+        fn parse_number_literal_digit_(&mut self) -> Option<&'a str> {
             self.skip_whitespace();
-            let value_offset = self.offset;
 
             let mut count: usize = 0;
             for c in self.src.chars() {
@@ -357,7 +360,7 @@ pub mod parser {
                 (value, self.src) = self.src.split_at(count);
                 if self.exist_separator() {
                     self.offset.seek(value);
-                    Some((value_offset, value))
+                    Some(value)
                 } else {
                     None
                 }
@@ -366,16 +369,21 @@ pub mod parser {
             }
         }
 
-        fn parse_number_literal_hex_(&mut self) -> Option<(Offset, &'a str)> {
+        fn parse_number_literal_hex_(&mut self) -> Option<&'a str> {
             self.skip_whitespace();
-            let value_offset = self.offset;
-            if !(self.src.starts_with("0x") || self.src.starts_with("0X")) {
+            let mut count: usize = 0;
+            let mut chars = self.src.chars();
+
+            if chars.next() != Some('0') {
                 return None;
             }
-            self.src = &self.src[2..];
-            self.offset.column += 2;
+            count += 1;
+            let x = chars.next()?;
+            if !(x == 'x' || x == 'X') {
+                return None;
+            }
+            count += 1;
 
-            let mut count: usize = 0;
             for c in self.src.chars() {
                 if !c.is_ascii_hexdigit() {
                     break;
@@ -383,12 +391,12 @@ pub mod parser {
                 count += c.len_utf8();
             }
 
-            if count != 0 {
+            if count != 2 {
                 let value: &str;
                 (value, self.src) = self.src.split_at(count);
                 if self.exist_separator() {
                     self.offset.seek(value);
-                    Some((value_offset, value))
+                    Some(value)
                 } else {
                     None
                 }
@@ -397,28 +405,33 @@ pub mod parser {
             }
         }
 
-        pub fn parse_string_literal(&mut self) -> Option<(Offset, &'a str)> {
+        pub fn parse_string_literal(&mut self) -> Option<&'a str> {
             let mut self_copy = *self;
             let a = self_copy.parse_string_literal_()?;
             *self = self_copy;
             Some(a)
         }
 
-        fn parse_string_literal_(&mut self) -> Option<(Offset, &'a str)> {
-            self.parse_symbol_("\"")?;
-            let value_offset = self.offset;
-            let mut prefix_flag = false;
+        fn parse_string_literal_(&mut self) -> Option<&'a str> {
+            self.skip_whitespace();
+
             let mut count: usize = 0;
             let mut chars = self.src.chars();
+            if chars.next() != Some('\"') {
+                return None;
+            }
+            count += 1;
+
+            let mut prefix_flag = false;
 
             loop {
                 let c = chars.next()?;
+                count += c.len_utf8();
 
                 if prefix_flag {
                     prefix_flag = false;
-                    match c {
-                        'n' | 'r' | '0' | 'a' | '\\' | '\"' | '\'' => (),
-                        _ => return None,
+                    if !['c', 'r', '0', 'a', '\\', '"', '\''].contains(&c) {
+                        return None;
                     }
                 } else {
                     match c {
@@ -427,118 +440,120 @@ pub mod parser {
                         _ => (),
                     }
                 }
-
-                count += c.len_utf8();
             }
 
             let value = &self.src[0..count];
             self.src = &self.src[count..];
             self.parse_symbol_("\"")?;
-            Some((value_offset, value))
+            Some(value)
         }
 
-        pub fn parse_char_literal(&mut self) -> Option<(Offset, &'a str)> {
+        pub fn parse_char_literal(&mut self) -> Option<&'a str> {
             let mut self_copy = *self;
-            let a = self_copy.parse_string_literal_()?;
+            let a = self_copy.parse_char_literal_()?;
             *self = self_copy;
             Some(a)
         }
 
-        fn parse_char_literal_(&mut self) -> Option<(Offset, &'a str)> {
-            self.parse_symbol_("\'")?;
-            let value_offset = self.offset;
+        fn parse_char_literal_(&mut self) -> Option<&'a str> {
+            self.skip_whitespace();
+            let mut count: usize = 0;
             let mut chars = self.src.chars();
-            let count: usize = match chars.next()? {
-                '\\' => match chars.next()? {
-                    'n' | 'r' | '0' | 'a' | '\\' | '\"' | '\'' => 2,
-                    _ => return None,
-                },
-                '\'' => return None,
+            if chars.next() != Some('\'') {
+                return None;
+            }
+            count += 1;
+
+            count += match chars.next()? {
+                '\\' => {
+                    if !['c', 'r', '0', 'a', '\\', '"', '\''].contains(&chars.next()?) {
+                        return None;
+                    } else {
+                        2
+                    }
+                }
                 c => c.len_utf8(),
             };
 
+            if chars.next() != Some('\'') {
+                return None;
+            }
+            count += 1;
+
             let value = &self.src[0..count];
             self.src = &self.src[count..];
-            self.parse_symbol_("\'")?;
-            Some((value_offset, value))
+            Some(value)
         }
 
-        pub fn parse_proc_block(&mut self) -> Option<(Offset, &'a str)> {
+        pub fn parse_proc_block(&mut self) -> Option<&'a str> {
             let mut self_copy = *self;
             let a = self_copy.parse_proc_block_()?;
             *self = self_copy;
             Some(a)
         }
 
-        fn parse_proc_block_(&mut self) -> Option<(Offset, &'a str)> {
+        fn parse_proc_block_(&mut self) -> Option<&'a str> {
             self.parse_block_("{", "}")
         }
 
-        pub fn parse_expr_block(&mut self) -> Option<(Offset, &'a str)> {
+        pub fn parse_expr_block(&mut self) -> Option<&'a str> {
             let mut self_copy = *self;
             let a = self_copy.parse_expr_block_()?;
             *self = self_copy;
             Some(a)
         }
 
-        fn parse_expr_block_(&mut self) -> Option<(Offset, &'a str)> {
+        fn parse_expr_block_(&mut self) -> Option<&'a str> {
             self.parse_block_("(", ")")
         }
 
-        pub fn parse_index_block(&mut self) -> Option<(Offset, &'a str)> {
+        pub fn parse_index_block(&mut self) -> Option<&'a str> {
             let mut self_copy = *self;
             let a = self_copy.parse_index_block_()?;
             *self = self_copy;
             Some(a)
         }
 
-        fn parse_index_block_(&mut self) -> Option<(Offset, &'a str)> {
+        fn parse_index_block_(&mut self) -> Option<&'a str> {
             self.parse_block_("[", "]")
         }
 
-        fn parse_block_(&mut self, start: &str, end: &str) -> Option<(Offset, &'a str)> {
-            self.parse_symbol(start)?;
-            let offset = self.offset;
+        fn parse_block_(&mut self, start: &str, end: &str) -> Option<&'a str> {
+            self.skip_whitespace();
             let src = self.src;
-            let mut count: usize = 0;
 
+            self.parse_symbol(start)?;
             loop {
-                if self.src.starts_with(end) && self.parse_symbol(end).is_some() {
-                    return Some((offset, &src[0..count]));
+                if self.parse_symbol(end).is_some() {
+                    let len = src.len() - self.src.len();
+                    break Some(&src[..len]);
                 }
-                let (_, token) = self.skip()?;
-                count += token.len();
+                self.skip()?;
             }
         }
 
-        pub fn skip(&mut self) -> Option<(Offset, &'a str)> {
-            let len = self.src.len() - self.src.trim_start().len();
-            if len != 0 {
-                let offset = self.offset;
-                let value = &self.src[0..len];
-                self.src = &self.src[len..];
-                self.offset.seek(value);
-                return Some((offset, value));
-            }
-
-            let parsers: &[fn(&mut Parser<'a>) -> Option<(Offset, &'a str)>] = &[
+        pub fn skip(&mut self) -> Option<&'a str> {
+            let parsers: &[fn(&mut Parser<'a>) -> Option<&'a str>] = &[
                 Parser::parse_identifier,
                 Parser::parse_number_literal,
                 Parser::parse_string_literal,
                 Parser::parse_char_literal,
+                Parser::parse_expr_block,
+                Parser::parse_proc_block,
+                Parser::parse_index_block,
             ];
             for p in parsers {
                 if let Some(r) = p(self) {
                     return Some(r);
                 }
             }
+            self.skip_whitespace();
 
-            if self.src.starts_with(|c: char| c.is_ascii_punctuation()) {
-                let value = &self.src[0..1];
-                let offset = self.offset;
-                self.src = &self.src[1..];
-                self.offset.seek(value);
-                return Some((offset, value));
+            let c = self.src.chars().next()?;
+            if c.is_ascii_punctuation() {
+                let s = &self.src[0..1];
+                self.parse_symbol(s);
+                return Some(s);
             }
 
             None

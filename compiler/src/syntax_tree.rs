@@ -71,16 +71,8 @@ trait CompilerState {
     fn add_object(self: Rc<Self>, object: Object) -> SResult<()>;
     fn get_object_by_name(self: Rc<Self>, name: &str) -> Option<Object>;
     fn get_object_by_register(self: Rc<Self>, register: Register) -> Option<Object>;
-    fn map_object_by_name(
-        self: Rc<Self>,
-        name: &str,
-        p: &dyn Fn(Option<&mut Object>) -> SResult<()>,
-    ) -> SResult<()>;
-    fn map_object_by_register(
-        self: Rc<Self>,
-        register: Register,
-        p: &dyn Fn(Option<&mut Object>) -> SResult<()>,
-    ) -> SResult<()>;
+    fn copy_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()>;
+    fn move_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()>;
     fn drop_object_by_name(self: Rc<Self>, name: &str);
     fn drop_object_by_register(self: Rc<Self>, register: Register);
 

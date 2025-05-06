@@ -14,6 +14,7 @@ pub fn parse(parser: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>> {
         ReferVariableExpr::parse,
         AtExpr::parse,
     ];
+
     if parser.is_empty() {
         return None;
     }
@@ -44,9 +45,10 @@ impl VariableDeclaration {
     }
 
     fn parse_(p: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>> {
-        let (offset, _) = p.parse_keyword("let")?;
+        let offset = p.offset();
+        p.parse_keyword("let")?;
         let mutable = p.parse_keyword("mut").is_some();
-        let name = p.parse_identifier()?.1;
+        let name = p.parse_identifier()?;
         let data = if p.parse_symbol(":").is_some() {
             Some(Data::parse(p)?)
         } else {
@@ -67,7 +69,7 @@ impl VariableDeclaration {
 
 impl SyntaxNode for VariableDeclaration {
     fn look_ahead(&self, state: Rc<dyn CompilerState>) {
-        // do nothing
+        self.expr.look_ahead(state.clone());
     }
 
     fn data(&self, state: Rc<dyn CompilerState>) -> Option<Data> {
@@ -75,41 +77,29 @@ impl SyntaxNode for VariableDeclaration {
     }
 
     fn compile(&self, state: Rc<dyn CompilerState>) {
-        self.expr.look_ahead(state.clone());
         self.expr.compile(state.clone());
 
         let Some(expr_data) = self.expr.data(state.clone()) else {
-            state.add_error(self.offset, format!("mismatching data, found \"None\""));
-            return;
-        };
-        if state.clone().get_type(&expr_data.r#type).is_some() {
-            let match_data = if let Some(ref self_data) = self.data {
-                self_data == &expr_data
-            } else {
-                true
-            };
-            if match_data {
-                let map_proc = |o: Option<&mut Object>| {
-                    if let Some(object) = o {
-                        object.name = Some(self.name.clone());
-                        object.mutable = self.mutable;
-                        Ok(())
-                    } else {
-                        panic!("unknown error");
-                    }
-                };
-                state
-                    .clone()
-                    .map_object_by_register(expr_data.register, &map_proc);
-            } else {
-                state.add_error(self.offset, format!("mismatching data"));
-            }
-        } else {
             state.add_error(
                 self.offset,
-                format!("type \"{}\" is undefined", expr_data.r#type),
+                "right expression doesn't return any value".to_string(),
             );
-        }
+            return;
+        };
+        let expr_data_register = expr_data.register;
+
+        let data = if let Some(ref d) = self.data {
+            d.clone()
+        } else {
+            expr_data
+        };
+        let object = Object {
+            name: Some(self.name.clone()),
+            mutable: self.mutable,
+            data: data,
+        };
+
+        state.clone().move_object(expr_data_register, object);
     }
 }
 
@@ -132,18 +122,25 @@ impl FunctionDeclaration {
     fn parse_(p: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>> {
         fn get_arguments_(p: &mut Parser<'_>) -> Option<Vec<Object>> {
             let mut arguments = Vec::new();
+            p.parse_symbol("(")?;
 
             loop {
-                if p.is_empty() {
-                    break;
-                }
-                let object = Object::parse(p)?;
-                arguments.push(object);
-                if p.parse_symbol(",").is_none() {
+                if p.parse_symbol(")").is_some() {
                     if p.is_empty() {
                         break;
                     } else {
                         return None;
+                    }
+                }
+                let object = Object::parse(p)?;
+                arguments.push(object);
+                if p.parse_symbol(",").is_none() {
+                    if p.parse_symbol(")").is_some() {
+                        if p.is_empty() {
+                            break;
+                        } else {
+                            return None;
+                        }
                     }
                 }
             }
@@ -153,19 +150,28 @@ impl FunctionDeclaration {
         fn get_procedure_(p: &mut Parser<'_>) -> Option<Vec<Box<dyn SyntaxNode>>> {
             let mut procedure = Vec::new();
 
+            p.parse_symbol("{")?;
             loop {
-                if p.is_empty() {
-                    procedure.push(Box::new(UnitExpr()) as Box<dyn SyntaxNode>);
-                    break;
-                }
-                let expr = parse(p)?;
-                procedure.push(expr);
-
-                if p.parse_symbol(";").is_none() {
+                if p.parse_symbol("}").is_some() {
                     if p.is_empty() {
+                        procedure.push(Box::new(UnitExpr()) as Box<dyn SyntaxNode>);
                         break;
                     } else {
                         return None;
+                    }
+                }
+                let Some(expr) = parse(p) else {
+                    return None;
+                };
+                procedure.push(expr);
+
+                if p.parse_symbol(";").is_none() {
+                    if p.parse_symbol("}").is_some() {
+                        if p.is_empty() {
+                            break;
+                        } else {
+                            return None;
+                        }
                     }
                 }
             }
@@ -173,16 +179,15 @@ impl FunctionDeclaration {
             Some(procedure)
         }
 
-        let (offset, _) = p.parse_keyword("fn")?;
-        let name = p.parse_identifier()?.1;
-        let a = p.parse_expr_block()?;
-        let mut args_parser = Parser::build(a);
+        let offset = p.offset();
+        let name = p.parse_identifier()?;
+        let mut args_parser = Parser::build(p.offset(), p.parse_expr_block()?);
         let data = if p.parse_symbol("->").is_some() {
             Some(Data::parse(p)?)
         } else {
             None
         };
-        let mut proc_parser = Parser::build(p.parse_proc_block()?);
+        let mut proc_parser = Parser::build(p.offset(), p.parse_proc_block()?);
         let arguments: Vec<Object> = get_arguments_(&mut args_parser)?;
         let procedure: Vec<Box<dyn SyntaxNode>> = get_procedure_(&mut proc_parser)?;
 
@@ -257,15 +262,15 @@ impl NumberLiteral {
 
     fn parse_(p: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>> {
         // $value (:$type) (@$register)
-        let mut p_copy = *p;
-        let (offset, value) = p_copy.parse_number_literal()?;
-        let r#type = if p_copy.parse_symbol(":").is_some() {
-            p_copy.parse_identifier()?.1.to_string()
+        let offset = p.offset();
+        let value = p.parse_number_literal()?;
+        let r#type = if p.parse_symbol(":").is_some() {
+            p.parse_identifier()?.to_string()
         } else {
             "i32".to_string()
         };
-        let register = if p_copy.parse_symbol("@").is_some() {
-            let Ok(r) = p_copy.parse_identifier()?.1.parse() else {
+        let register = if p.parse_symbol("@").is_some() {
+            let Ok(r) = p.parse_identifier()?.parse() else {
                 return None;
             };
             r
@@ -273,7 +278,6 @@ impl NumberLiteral {
             Register::Eax
         };
 
-        *p = p_copy;
         let node = NumberLiteral {
             value: value.to_string(),
             r#type: r#type,
@@ -321,7 +325,8 @@ pub struct ReferVariableExpr {
 
 impl ReferVariableExpr {
     pub fn parse(p: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>> {
-        let (offset, name) = p.parse_identifier()?;
+        let offset = p.offset();
+        let name = p.parse_identifier()?;
         let node = ReferVariableExpr {
             name: name.to_string(),
             offset: offset,
@@ -361,8 +366,9 @@ impl VariableAssign {
     }
 
     fn parse_(p: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>> {
-        // $expr = $expr
-        let (offset, left) = p.parse_identifier()?;
+        // $name = $expr
+        let offset = p.offset();
+        let left = p.parse_identifier()?;
         p.parse_symbol("=")?;
         let right_expr = parse(p)?;
         let node = VariableAssign {
@@ -385,7 +391,10 @@ impl SyntaxNode for VariableAssign {
 
     fn compile(&self, state: Rc<dyn CompilerState>) {
         let Some(left_object) = state.clone().get_object_by_name(&self.left) else {
-            state.add_error(self.offset, format!("variable \"{}\" is undefined", self.left));
+            state.add_error(
+                self.offset,
+                format!("variable \"{}\" is undefined", self.left),
+            );
             return;
         };
         let Some(right_data) = self.right.data(state.clone()) else {
@@ -395,7 +404,7 @@ impl SyntaxNode for VariableAssign {
         if left_object.data == right_data {
             if left_object.mutable {
                 self.right.compile(state.clone());
-            }else {
+            } else {
                 state.add_error(
                     self.offset,
                     format!("variable \"{}\" is immutable", &self.left),
@@ -426,20 +435,29 @@ impl CallingFunction {
     }
 
     fn parse_(p: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>> {
-        let (offset, name) = p.parse_identifier()?;
-        let mut args_parser = Parser::build(p.parse_expr_block()?);
+        let offset = p.offset();
+        let name = p.parse_identifier()?;
+        let mut args_parser = Parser::build(p.offset(), p.parse_expr_block()?);
         let mut arguments = Vec::new();
+        args_parser.parse_symbol("(")?;
         loop {
-            if args_parser.is_empty() {
-                break;
-            }
-            let node = parse(&mut args_parser)?;
-            arguments.push(node);
-            if args_parser.parse_symbol(",").is_none() {
+            if args_parser.parse_symbol(")").is_some() {
                 if args_parser.is_empty() {
                     break;
                 } else {
                     return None;
+                }
+            }
+
+            let node = parse(&mut args_parser)?;
+            arguments.push(node);
+            if args_parser.parse_symbol(",").is_none() {
+                if args_parser.parse_symbol(")").is_some() {
+                    if args_parser.is_empty() {
+                        break;
+                    } else {
+                        return None;
+                    }
                 }
             }
         }
@@ -547,14 +565,26 @@ impl AtExpr {
     }
 
     fn parse_(p: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>> {
-        let mut expr_parser = Parser::build(p.parse_expr_block()?);
+        let offset = p.offset();
+
+        let mut expr_parser = Parser::build(p.offset(), p.parse_expr_block()?);
+        expr_parser.parse_symbol("(")?;
         let expr = parse(&mut expr_parser)?;
-        let (offset, _) = p.parse_symbol("@")?;
-        let register_string = p.parse_identifier()?.1;
+        expr_parser.parse_symbol(")")?;
+        if !expr_parser.is_empty() {
+            return None;
+        }
+
+        p.parse_symbol("@")?;
+        let register_string = p.parse_identifier()?;
         let Ok(register) = register_string.parse::<Register>() else {
             return None;
         };
-        let node = AtExpr { expr: expr, register: register, offset: offset };
+        let node = AtExpr {
+            expr: expr,
+            register: register,
+            offset: offset,
+        };
         Some(Box::new(node))
     }
 }
@@ -572,38 +602,39 @@ impl SyntaxNode for AtExpr {
 
     fn compile(&self, state: Rc<dyn CompilerState>) {
         let Some(origin_data) = self.expr.data(state.clone()) else {
-            state.clone().add_error(self.offset, "expected data".to_string());
+            state
+                .clone()
+                .add_error(self.offset, "expected data".to_string());
             return;
         };
         let Some(data) = self.data(state.clone()) else {
-            state.clone().add_error(self.offset, "expected data".to_string());
+            state
+                .clone()
+                .add_error(self.offset, "expected data".to_string());
             return;
         };
 
         self.expr.compile(state.clone());
 
-        let Some(r#type) = state.clone().get_type(&data.r#type) else {
+        let Some(r#type) = state.clone().get_type(&origin_data.r#type) else {
             return;
         };
 
+        let object = Object {
+            name: None,
+            mutable: false,
+            data: data,
+        };
         if r#type.copy {
-            let object = Object {
-                name: None,
-                mutable: false,
-                data: data,
-            };
-            if let Err(e) = state.clone().add_object(object) {
+            if let Err(e) = state.clone().copy_object(origin_data.register, object) {
                 state.clone().add_error(self.offset, e);
                 return;
             }
-        }else {
-            let map_fn = | object: Option<&mut Object> | {
-                let object = object.expect("internal error");
-                object.data.register = self.register;
-                Ok(())
-            };
-            state.clone().map_object_by_register(origin_data.register, &map_fn).expect("internal error");
+        } else {
+            if let Err(e) = state.clone().move_object(origin_data.register, object) {
+                state.clone().add_error(self.offset, e);
+                return;
+            }
         }
-        state.clone().add_asm(&format!("mov {} {}\n", self.register, origin_data.register));
     }
 }
