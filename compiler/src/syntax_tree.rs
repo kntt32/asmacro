@@ -75,6 +75,9 @@ trait CompilerState {
     fn move_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()>;
     fn drop_object_by_name(self: Rc<Self>, name: &str);
     fn drop_object_by_register(self: Rc<Self>, register: Register);
+    fn drop_object_without(self: Rc<Self>, register: Register);
+    fn drop_object_all(self: Rc<Self>);
+    fn consume_object(self: Rc<Self>, register: Register);
 
     fn add_asm(self: Rc<Self>, code: &str);
     fn add_error(self: Rc<Self>, offset: Offset, msg: String);

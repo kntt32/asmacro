@@ -116,6 +116,18 @@ impl CompilerState for GlobalState {
         // do nothing
     }
 
+    fn drop_object_without(self: Rc<Self>, register: Register) {
+        // do nothiing
+    }
+
+    fn drop_object_all(self: Rc<Self>) {
+        // do nothing
+    }
+
+    fn consume_object(self: Rc<Self>, register: Register) {
+        // do nothing
+    }
+
     fn add_asm(self: Rc<Self>, code: &str) {
         *self.assembly.borrow_mut() += code;
     }
@@ -244,12 +256,52 @@ impl CompilerState for ProcState {
             let to_data_register = to.data.register;
             self.clone().add_object(to)?;
             self.clone()
-                .add_asm(&format!("mov {} {}", to_data_register, from));
+                .add_asm(&format!("mov {} {}\n", to_data_register, from));
             Ok(())
         }
     }
     fn move_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()> {
-        todo!()
+        let Some(r#type) = self.clone().get_type(&to.data.r#type) else {
+            return Err(format!("type \"{}\" is undefined", &to.data.r#type));
+        };
+        let Some(from_object) = self.clone().get_object_by_register(from) else {
+            return Err("object doesn't exist".to_string());
+        };
+
+        if &from_object.data.r#type != &to.data.r#type {
+            return Err("mismatching types".to_string());
+        }
+        if from != to.data.register {
+            let mut removed_flag = false;
+            self.clone()
+                .object_list
+                .borrow_mut()
+                .retain(|object: &Object| {
+                    object.data.register != from || {
+                        removed_flag = true;
+                        false
+                    }
+                });
+            if removed_flag {
+                self.clone()
+                    .add_asm(&format!("mov {} {}\n", to.data.register, from));
+                self.clone().add_object(to);
+                return Ok(());
+            }
+        } else {
+            for i in &mut *self.clone().object_list.borrow_mut() {
+                if i.data.register == from {
+                    *i = to;
+                    return Ok(());
+                }
+            }
+        }
+
+        self.clone()
+            .parent
+            .upgrade()
+            .expect("failed to upgrade parent compiler-state")
+            .move_object(from, to)
     }
     fn drop_object_by_name(self: Rc<Self>, name: &str) {
         let mut object_list = self.object_list.borrow_mut();
@@ -281,6 +333,31 @@ impl CompilerState for ProcState {
             .upgrade()
             .expect("internal error")
             .drop_object_by_register(register);
+    }
+
+    fn drop_object_without(self: Rc<Self>, register: Register) {
+        let mut object_list = self.object_list.borrow_mut();
+        object_list.retain(|object: &Object| object.data.register == register);
+    }
+
+    fn drop_object_all(self: Rc<Self>) {
+        let mut object_list = self.object_list.borrow_mut();
+        object_list.clear();
+    }
+
+    fn consume_object(self: Rc<Self>, register: Register) {
+        let mut object_list = self.object_list.borrow_mut();
+
+        for i in 0..object_list.len() {
+            if object_list[i].data.register == register {
+                object_list.remove(i);
+                return;
+            }
+        }
+        self.parent
+            .upgrade()
+            .expect("failed to upgrade parent compiler-state")
+            .consume_object(register);
     }
 
     fn add_asm(self: Rc<Self>, code: &str) {

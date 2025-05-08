@@ -88,7 +88,7 @@ impl Object {
     fn parse_(p: &mut Parser<'_>) -> Option<Self> {
         let mutable = p.parse_keyword("mut").is_some();
         let name = p.parse_identifier()?;
-        p.parse_keyword(":")?;
+        p.parse_symbol(":")?;
         let data = Data::parse(p)?;
         Some(Object {
             name: Some(name.to_string()),
