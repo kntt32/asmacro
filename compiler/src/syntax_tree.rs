@@ -60,6 +60,7 @@ trait SyntaxNode: Debug {
 /// コンパイル中に情報を記録するためのデータ型のトレイト
 trait CompilerState {
     fn child_for_proc(self: Rc<Self>) -> SResult<Rc<dyn CompilerState>>;
+    // fn child_for_branch_proc(self: Rc<Self>) -> SResult<(Rc<dyn CompilerState>, Rc<dyn CompilerState>)>;
 
     fn add_function(self: Rc<Self>, function: Function) -> SResult<()>;
     fn get_function(self: Rc<Self>, name: &str) -> Option<Function>;
@@ -73,10 +74,12 @@ trait CompilerState {
     fn get_object_by_register(self: Rc<Self>, register: Register) -> Option<Object>;
     fn copy_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()>;
     fn move_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()>;
-    fn drop_object_by_name(self: Rc<Self>, name: &str);
-    fn drop_object_by_register(self: Rc<Self>, register: Register);
-    fn drop_object_without(self: Rc<Self>, register: Register);
-    fn drop_object_all(self: Rc<Self>);
+    fn assgin_object(self: Rc<Self>, to: Register, object: Object) -> SResult<()>;
+    fn kill_object_by_name(self: Rc<Self>, name: &str);
+    fn kill_object_by_register(self: Rc<Self>, register: Register);
+    fn kill_object_without(self: Rc<Self>, without: Register);
+    fn kill_object_all(self: Rc<Self>);
+
     fn consume_object(self: Rc<Self>, register: Register);
 
     fn add_asm(self: Rc<Self>, code: &str);

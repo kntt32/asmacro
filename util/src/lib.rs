@@ -532,6 +532,20 @@ pub mod parser {
             }
         }
 
+        pub fn parse_line(&mut self) -> Option<&'a str> {
+            let mut self_copy = *self;
+            let a = self_copy.parse_line_()?;
+            *self = self_copy;
+            Some(a)
+        }
+
+        fn parse_line_(&mut self) -> Option<&'a str> {
+            let (left, right) = self.src.split_once("\n")?;
+            self.src = right;
+            self.offset.seek(left);
+            Some(left.trim())
+        }
+
         pub fn skip(&mut self) -> Option<&'a str> {
             let parsers: &[fn(&mut Parser<'a>) -> Option<&'a str>] = &[
                 Parser::parse_identifier,

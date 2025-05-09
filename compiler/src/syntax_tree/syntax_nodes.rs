@@ -6,6 +6,7 @@ use util::{Offset, parser, parser::Parser};
 
 /// ソースコードのパースを行う関数
 pub fn parse(parser: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>> {
+    skip_comment(parser);
     parse_recursive_node(parser).or_else(|| parse_normal_node(parser))
 }
 
@@ -26,6 +27,14 @@ fn parse_recursive_node(parser: &mut Parser<'_>) -> Option<Box<dyn SyntaxNode>> 
         &[VariableAssign::parse, AtExpr::parse];
 
     parse_helper(parser, PARSERS)
+}
+
+fn skip_comment(parser: &mut Parser<'_>) {
+    while parser.parse_symbol("//").is_some() {
+        if parser.parse_line().is_none() {
+            break;
+        }
+    }
 }
 
 fn parse_helper(
@@ -262,6 +271,11 @@ impl SyntaxNode for FunctionDeclaration {
                 }
                 for node in &self.procedure {
                     node.compile(child_state.clone());
+                    if let Some(node_data) = node.data(child_state.clone()) {
+                        child_state
+                            .clone()
+                            .kill_object_by_register(node_data.register);
+                    }
                 }
                 let proc_len = self.procedure.len();
                 let proc_data = if proc_len != 0 {
@@ -275,9 +289,9 @@ impl SyntaxNode for FunctionDeclaration {
                         .add_error(self.offset, format!("expected data"));
                 }
                 if let Some(ref f_data) = self.function.data {
-                    state.clone().drop_object_without(f_data.register);
+                    state.clone().kill_object_without(f_data.register);
                 } else {
-                    state.clone().drop_object_all();
+                    state.clone().kill_object_all();
                 }
                 state.clone().add_asm("ret\n");
             }
@@ -447,10 +461,18 @@ impl SyntaxNode for VariableAssign {
             state.add_error(self.offset, format!("right expression returns no value"));
             return;
         };
+
         if left_object.mutable {
+            let right_object = Object {
+                name: None,
+                mutable: false,
+                data: right_data,
+            };
             self.left.compile(state.clone());
+            state
+                .clone()
+                .assgin_object(left_data.register, right_object);
             self.right.compile(state.clone());
-            state.clone().move_object(right_data.register, left_object);
         } else {
             state.add_error(self.offset, format!("left object is immutable"));
         }

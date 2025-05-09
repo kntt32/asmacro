@@ -101,26 +101,30 @@ impl CompilerState for GlobalState {
     }
 
     fn copy_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()> {
-        Err("object can't be copied here".to_string())
+        Err("undefined".to_string())
     }
 
     fn move_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()> {
-        Err("object can't be moved here".to_string())
+        Err("undefined".to_string())
     }
 
-    fn drop_object_by_name(self: Rc<Self>, name: &str) {
+    fn assgin_object(self: Rc<Self>, to: Register, object: Object) -> SResult<()> {
+        Err("undefined".to_string())
+    }
+
+    fn kill_object_by_name(self: Rc<Self>, name: &str) {
         // do nothing
     }
 
-    fn drop_object_by_register(self: Rc<Self>, register: Register) {
+    fn kill_object_by_register(self: Rc<Self>, register: Register) {
         // do nothing
     }
 
-    fn drop_object_without(self: Rc<Self>, register: Register) {
+    fn kill_object_without(self: Rc<Self>, register: Register) {
         // do nothiing
     }
 
-    fn drop_object_all(self: Rc<Self>) {
+    fn kill_object_all(self: Rc<Self>) {
         // do nothing
     }
 
@@ -158,6 +162,7 @@ impl CompilerState for ProcState {
     fn add_function(self: Rc<Self>, function: Function) -> SResult<()> {
         Err("functions cannot defined here".to_string())
     }
+
     fn get_function(self: Rc<Self>, name: &str) -> Option<Function> {
         self.parent
             .upgrade()
@@ -168,6 +173,7 @@ impl CompilerState for ProcState {
     fn add_type(self: Rc<Self>, r#type: Type) -> SResult<()> {
         Err("types cannot defined here".to_string())
     }
+
     fn get_type(self: Rc<Self>, name: &str) -> Option<Type> {
         self.parent
             .upgrade()
@@ -182,11 +188,12 @@ impl CompilerState for ProcState {
             .expect("internal error")
             .clean_object();
     }
+
     fn add_object(self: Rc<Self>, object: Object) -> SResult<()> {
         if let Some(ref name) = object.name {
-            self.clone().drop_object_by_name(name);
+            self.clone().kill_object_by_name(name);
         }
-        self.clone().drop_object_by_register(object.data.register);
+        self.clone().kill_object_by_register(object.data.register);
 
         let Some(r#type) = self.clone().get_type(&object.data.r#type) else {
             return Err(format!("type \"{}\" is undefined", object.data.r#type));
@@ -200,6 +207,7 @@ impl CompilerState for ProcState {
         self.object_list.borrow_mut().push(object);
         Ok(())
     }
+
     fn get_object_by_name(self: Rc<Self>, name: &str) -> Option<Object> {
         for i in &*self.object_list.borrow() {
             if let Some(ref i_name) = i.name {
@@ -213,6 +221,7 @@ impl CompilerState for ProcState {
             .expect("internal error")
             .get_object_by_name(name)
     }
+
     fn get_object_by_register(self: Rc<Self>, register: Register) -> Option<Object> {
         for i in &*self.object_list.borrow() {
             if i.data.register == register {
@@ -224,6 +233,7 @@ impl CompilerState for ProcState {
             .expect("internal error")
             .get_object_by_register(register)
     }
+
     fn copy_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()> {
         let Some(r#type) = self.clone().get_type(&to.data.r#type) else {
             return Err(format!("type \"{}\" is undefined", &to.data.r#type));
@@ -260,6 +270,29 @@ impl CompilerState for ProcState {
             Ok(())
         }
     }
+
+    fn assgin_object(self: Rc<Self>, to: Register, object: Object) -> SResult<()> {
+        let mut object_list = self.object_list.borrow_mut();
+
+        for i in &mut *object_list {
+            if i.data.register == to {
+                if &i.data != &object.data {
+                    return Err("can't assign different data type".to_string());
+                } else if !i.mutable {
+                    return Err("can't assign to immutable object".to_string());
+                } else {
+                    // call drop function
+                    return Ok(());
+                }
+            }
+        }
+
+        self.parent
+            .upgrade()
+            .expect("failed to upgrade parent compiler-state")
+            .assgin_object(to, object)
+    }
+
     fn move_object(self: Rc<Self>, from: Register, to: Object) -> SResult<()> {
         let Some(r#type) = self.clone().get_type(&to.data.r#type) else {
             return Err(format!("type \"{}\" is undefined", &to.data.r#type));
@@ -303,7 +336,8 @@ impl CompilerState for ProcState {
             .expect("failed to upgrade parent compiler-state")
             .move_object(from, to)
     }
-    fn drop_object_by_name(self: Rc<Self>, name: &str) {
+
+    fn kill_object_by_name(self: Rc<Self>, name: &str) {
         let mut object_list = self.object_list.borrow_mut();
         for i in 0..object_list.len() {
             if let Some(ref object_name) = object_list[i].name {
@@ -316,9 +350,10 @@ impl CompilerState for ProcState {
         self.parent
             .upgrade()
             .expect("internal error")
-            .drop_object_by_name(name);
+            .kill_object_by_name(name);
     }
-    fn drop_object_by_register(self: Rc<Self>, register: Register) {
+
+    fn kill_object_by_register(self: Rc<Self>, register: Register) {
         let mut object_list = self.object_list.borrow_mut();
         let mut i = 0;
         while i < object_list.len() {
@@ -332,15 +367,15 @@ impl CompilerState for ProcState {
         self.parent
             .upgrade()
             .expect("internal error")
-            .drop_object_by_register(register);
+            .kill_object_by_register(register);
     }
 
-    fn drop_object_without(self: Rc<Self>, register: Register) {
+    fn kill_object_without(self: Rc<Self>, register: Register) {
         let mut object_list = self.object_list.borrow_mut();
         object_list.retain(|object: &Object| object.data.register == register);
     }
 
-    fn drop_object_all(self: Rc<Self>) {
+    fn kill_object_all(self: Rc<Self>) {
         let mut object_list = self.object_list.borrow_mut();
         object_list.clear();
     }

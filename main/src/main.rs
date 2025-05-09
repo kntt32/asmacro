@@ -6,8 +6,16 @@ use asm::{
     },
     linker::object::Object,
 };
-use compiler::syntax_tree::SyntaxTree;
-use std::{env::args, fs::File, io::Write, path::Path, process::Command, rc::Rc};
+use compiler::compile;
+use std::{
+    env::{args, Args},
+    fs::File,
+    io::Read,
+    io::Write,
+    path::Path,
+    process::Command,
+    rc::Rc,
+};
 use util::{parser::Parser as UParser, Offset};
 
 fn main() {
@@ -33,18 +41,18 @@ fn command_interpreter() {
 
                 asmacro compile [file]
 
-                asmacro asm [file] ([-o path])
+                asmacro asm [file]
 
-                asmacro build [file] ([-o path])
+                asmacro build [file]
 
-                asmacro run [file] ([-o path])
+                asmacro run [file]
             "
         );
         return;
     };
 
     match &*command {
-        "compile" => todo!(),
+        "compile" => compile_cmd(args),
         "asm" => asm_demo(),
         "build" => todo!(),
         "run" => {
@@ -54,6 +62,47 @@ fn command_interpreter() {
         _ => panic!(),
     }
 }
+
+fn compile_cmd(mut args: Args) {
+    let Some(file_name) = args.next() else {
+        eprintln!("error: missing file name");
+        return;
+    };
+
+    let mut file = match File::open(&file_name) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("error: {:?}", e);
+            return;
+        }
+    };
+    let mut source_code = String::new();
+    let Ok(_) = file.read_to_string(&mut source_code) else {
+        eprintln!("error: invalid char code in the file");
+        return;
+    };
+
+    match compile(&source_code) {
+        Ok(asm) => {
+            let asm_file_name = format!("{}.s", &file_name);
+            let mut asm_file = File::create(&asm_file_name)
+                .expect(&format!("failed creating \"{}\"", &asm_file_name));
+            asm_file
+                .write_all(asm.as_bytes())
+                .expect(&format!("failed writing code to \"{}\"", &asm_file_name));
+        }
+        Err(e) => {
+            for elm in &e {
+                let (offset, msg) = elm;
+                eprintln!(
+                    "error: {}:{}:{}: {}",
+                    &file_name, offset.row, offset.column, &msg
+                );
+            }
+        }
+    }
+}
+
 /*
 #[allow(unused)]
 fn preproc_demo() {
