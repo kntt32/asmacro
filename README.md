@@ -1,4 +1,5 @@
 # asmacro
+# 以降済みhttps://github.com/kntt32/as-macro
 ## とりあえずの目標
 ↓このようなコードを、
 ```
